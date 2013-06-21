@@ -6,6 +6,19 @@ if exists("g:loaded_fireplace") || v:version < 700 || &cp
 endif
 let g:loaded_fireplace = 1
 
+if !has('python')
+  echo "fireplace requires a python-enabled vim!"
+  finish
+endif
+
+" TODO any easier way?
+let pythonpath = filter(split(&runtimepath, ','), "v:val =~ 'vim-fireplace$\\|nrepl-python-client$'")
+python << EOF
+import sys, vim
+sys.path.extend(vim.eval("pythonpath"))
+import vim_nrepl
+EOF
+
 " File type {{{1
 
 augroup fireplace_file_type

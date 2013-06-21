@@ -23,7 +23,7 @@ EOF
 
 augroup fireplace_file_type
   autocmd!
-  autocmd BufNewFile,BufReadPost *.clj setfiletype clojure
+  autocmd BufNewFile,BufReadPost *.clj,*.cljs,*.cljx,*.edn setfiletype clojure
 augroup END
 
 " }}}1

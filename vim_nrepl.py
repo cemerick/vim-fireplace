@@ -19,6 +19,23 @@ sessions = {}
 #  "msg": {"id": "", "session": "", ...}}
 _response = None
 
+### vim interop ###
+
+# copied from fireplace_connection, presumed necessary for py->vim transfer
+def _vim_string_encode (input):
+  str_list = []
+  for c in input:
+    if (000 <= ord(c) and ord(c) <= 037) or c == '"' or c == "\\":
+      str_list.append("\\{0:03o}".format(ord(c)))
+    else:
+      str_list.append(c)
+  return '"' + ''.join(str_list) + '"'
+
+def _vim_let (var, value):
+  return vim.command('let ' + var + " = " + fireplace_string_encode(value))
+
+### automatic session tracking ###
+
 def _watch_session_responses (uri, msg, wc, key):
     _response = {"uri": uri, "msg": msg}
     if wc.rootdir: _response["rootdir"] = wc.rootdir
@@ -29,6 +46,8 @@ def _watch_new_sessions (uri, msg, wc, key):
     sessions[session] = uri
     wc.watch("session" + session, {"session": session},
             partial(_watch_session_responses, uri))
+
+### public API ###
 
 def connect (uri, **kwargs):
     if uri in connections:
@@ -79,5 +98,3 @@ def send_on_session (session, message):
 # * need some handling of error conditions when starting new lein processes
  
 
-# import thread, vim
-# thread.start_new_thread(lambda: vim.buffers[0].append("hi"), ());

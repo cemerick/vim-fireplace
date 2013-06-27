@@ -1,4 +1,5 @@
 import nrepl, subprocess, re, uuid, os.path, vim
+import nrepl_state as state
 from functools import partial
 
 class VimConnection (nrepl.WatchableConnection):
@@ -8,12 +9,6 @@ class VimConnection (nrepl.WatchableConnection):
         self.process = process
         # "/optional/root/directory, e.g. where lein was started"
         self.rootdir = rootdir
-
-# {"uri": VimConnection}
-connections = {}
-
-# {"sessionid": "uri"}
-sessions = {}
 
 # {"uri": "uri", "rootdir": "/optional/root/dir",
 #  "msg": {"id": "", "session": "", ...}}
@@ -43,17 +38,17 @@ def _watch_session_responses (uri, msg, wc, key):
 
 def _watch_new_sessions (uri, msg, wc, key):
     session = msg.get("new-session")
-    sessions[session] = uri
+    state.sessions[session] = uri
     wc.watch("session" + session, {"session": session},
             partial(_watch_session_responses, uri))
 
 ### public API ###
 
 def connect (uri, **kwargs):
-    if uri in connections:
+    if uri in state.connections:
         return uri
     else:
-        c = connections[uri] = VimConnection(uri, **kwargs)
+        c = state.connections[uri] = VimConnection(uri, **kwargs)
         c.watch("sessions", {"new-session": None},
                 partial(_watch_new_sessions, uri))
         return uri
@@ -78,13 +73,13 @@ def start_local_repl (rootdir, cmd=["lein", "repl", ":headless"]):
 def new_session (uri, clone_existing=None):
     msg = {"op": "clone"}
     if clone_existing: msg["session"] = clone_existing
-    connections[uri].send(msg)
+    state.connections[uri].send(msg)
 
 def send_on_session (session, message):
     message["session"] = session
     message["id"] = str(uuid.uuid4())
-    uri = sessions[session]
-    connections[uri].send(message)
+    uri = state.sessions[session]
+    state.connections[uri].send(message)
 
 
 # TODOs

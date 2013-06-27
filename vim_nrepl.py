@@ -1,3 +1,5 @@
+# vim: set fileencoding=utf-8 :
+
 import nrepl, subprocess, re, uuid, os.path, vim
 import nrepl_state as state
 from functools import partial
@@ -16,31 +18,57 @@ _response = None
 
 ### vim interop ###
 
-# copied from fireplace_connection, presumed necessary for py->vim transfer
-def _vim_string_encode (input):
-  str_list = []
-  for c in input:
-    if (000 <= ord(c) and ord(c) <= 037) or c == '"' or c == "\\":
-      str_list.append("\\{0:03o}".format(ord(c)))
-    else:
-      str_list.append(c)
-  return '"' + ''.join(str_list) + '"'
+# /ht https://groups.google.com/forum/#!topic/vim_use/XXVGOuPkszQ
+_vim_encoding = vim.eval('&encoding')
+
+def isstring (x): return isinstance(x, (str, unicode))
+
+def _vim_encode (input):
+    if isstring(input):
+        return "'" + input.replace("'", "''").encode(_vim_encoding) + "'"
+    elif isinstance(input, int):
+        return repr(input)
+    elif isinstance(input, (list, tuple)):
+        return "[" + ",".join([_vim_encode(x) for x in input]) + "]"
+    elif isinstance(input, dict):
+        return "{" + ",".join([_vim_encode(k) + ":" + _vim_encode(v) for k, v in
+            input.items()]) + "}"
 
 def _vim_let (var, value):
-  return vim.command('let ' + var + " = " + fireplace_string_encode(value))
+  return vim.command('let ' + var + " = " + _vim_encode(value))
+
+def _vim_log_components (xs):
+    return ' '.join([
+                _vim_encode(x) if isstring(x) else
+                "string(%s)" % _vim_encode(x)
+                for x in xs])
+
+def _vim_log (*msg):
+    vim.command(":echom " + _vim_log_components(msg))
+
+def _vim_error (*msg):
+    vim.command(":echoe" + _vim_log_components(msg))
+
+## figuring out vim/py interop
+# x ={u"の": [5, 6, 'b']} 
+# 
+# def xxx ():
+#     _vim_let("xxx", u"の")
+#     _vim_let("yyy", {u"の": [5, 6, 'b']})
 
 ### automatic session tracking ###
 
 def _watch_session_responses (uri, msg, wc, key):
     _response = {"uri": uri, "msg": msg}
     if wc.rootdir: _response["rootdir"] = wc.rootdir
-    vim.command(":echom \"" + str(_response) + "\"")
+    _vim_log(_response)
 
 def _watch_new_sessions (uri, msg, wc, key):
     session = msg.get("new-session")
     state.sessions[session] = uri
     wc.watch("session" + session, {"session": session},
             partial(_watch_session_responses, uri))
+    _vim_log("new session: " + session)
 
 ### public API ###
 

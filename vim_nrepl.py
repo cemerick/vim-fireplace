@@ -37,6 +37,11 @@ def _vim_encode (input):
 def _vim_let (var, value):
   return vim.command('let ' + var + " = " + _vim_encode(value))
 
+def _vimcall (fn, *args):
+    "Call the named vim function with the given args, returning the result."
+    return vim.command(":call %s(%s)" % (fn,
+        ','.join(map(_vim_encode, args))))
+
 def _vim_log_components (xs):
     return ' '.join([
                 _vim_encode(x) if isstring(x) else
@@ -68,7 +73,8 @@ def _watch_new_sessions (uri, msg, wc, key):
     state.sessions[session] = uri
     wc.watch("session" + session, {"session": session},
             partial(_watch_session_responses, uri))
-    _vim_log("new session: " + session)
+    _vimcall("fireplace#new_session", {"session": session, "uri": uri})
+    # TODO add connection rootdir if exists
 
 ### public API ###
 

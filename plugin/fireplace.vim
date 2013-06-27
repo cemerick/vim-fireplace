@@ -50,6 +50,22 @@ function! s:to_ns(path) abort
   return tr(substitute(a:path, '\.\w\+$', '', ''), '\/_', '..-')
 endfunction
 
+" REPL log buffers
+if !exists('s:session_buffers')
+  let s:session_buffers = {}
+  let s:session_counter = 0
+endif
+
+function! fireplace#new_session (info)
+  let s:session_counter += 1
+  let a:info['session_number'] = s:session_counter
+  let s:session_buffers[a:info['session']] = a:info
+endfunction
+
+function! fireplace#session_buffer (session)
+  return get(s:session_buffers, a:session)
+endfunction
+
 " " }}}1
 " " Completion {{{1
 " 

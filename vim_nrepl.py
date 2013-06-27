@@ -87,7 +87,8 @@ def connect_local_repl (rootdir):
         port = open(repl_port_path).read()
         return connect("nrepl://localhost:" + port, rootdir=rootdir)
     else:
-        # TODO what?
+        _vim_error("Cannot connect to REPL local to", rootdir,
+                "— no file found @ `target/repl-port`")
         pass
 
 def start_local_repl (rootdir, cmd=["lein", "repl", ":headless"]):

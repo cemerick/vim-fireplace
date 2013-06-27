@@ -2,12 +2,13 @@
 " Maintainer:   Tim Pope <http://tpo.pe/>
 
 if exists("g:loaded_fireplace") || v:version < 700 || &cp
-  finish
+  " TODO easy reload, at least temporarily
+  " finish
 endif
 let g:loaded_fireplace = 1
 
 if !has('python')
-  echo "fireplace requires a python-enabled vim!"
+  echoe "fireplace requires a python-enabled vim!"
   finish
 endif
 
@@ -15,7 +16,11 @@ endif
 let pythonpath = filter(split(&runtimepath, ','), "v:val =~ 'vim-fireplace$\\|nrepl-python-client$'")
 python << EOF
 import sys, vim
-sys.path.extend(vim.eval("pythonpath"))
+try:
+  additions = vim.eval("pythonpath")
+  sys.path.index(additions[0])
+except ValueError:
+  sys.path.extend(additions)
 import vim_nrepl
 EOF
 

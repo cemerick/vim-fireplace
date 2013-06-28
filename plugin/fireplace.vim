@@ -24,6 +24,12 @@ except ValueError:
 import vim_nrepl
 EOF
 
+function! fireplace#pycall (fn, args)
+  let repr_args = deepcopy(a:args)
+  call map(repr_args, 'string(v:val)')
+  execute 'py ' . a:fn . '(' . join(repr_args, ',') . ')' 
+endfunction
+
 " File type {{{1
 
 augroup fireplace_file_type
@@ -50,6 +56,57 @@ function! s:to_ns(path) abort
   return tr(substitute(a:path, '\.\w\+$', '', ''), '\/_', '..-')
 endfunction
 
+
+" }}}1
+" Leiningen {{{1
+
+function! s:hunt(start, anchor, pattern) abort
+  let root = simplify(fnamemodify(a:start, ':p:s?[\/]$??'))
+  if !isdirectory(fnamemodify(root, ':h'))
+    return ''
+  endif
+  let previous = ""
+  while root !=# previous
+    if filereadable(root . '/' . a:anchor) && join(readfile(root . '/' . a:anchor, '', 50)) =~# a:pattern
+      return root
+    endif
+    let previous = root
+    let root = fnamemodify(root, ':h')
+  endwhile
+  return ''
+endfunction
+
+function! s:leiningen_root () abort
+  let root = s:hunt(expand('%:p'), 'project.clj', '(\s*defproject')
+  if root !=# ''
+    return root
+  else
+    return 0
+endfunction
+
+function! s:leiningen_init() abort
+  if !exists('b:leiningen_root')
+    let root = s:leiningen_root()
+    if root !=# ''
+      let b:leiningen_root = root
+    endif
+  endif
+  if !exists('b:leiningen_root')
+    return
+  endif
+
+  let b:java_root = b:leiningen_root
+
+  setlocal makeprg=lein efm=%+G
+endfunction
+
+augroup fireplace_leiningen
+  autocmd!
+  autocmd FileType clojure call s:leiningen_init()
+augroup END
+
+" }}}1
+
 " REPL log buffers
 if !exists('s:session_buffers')
   let s:session_buffers = {}
@@ -64,6 +121,40 @@ endfunction
 
 function! fireplace#session_buffer (session)
   return get(s:session_buffers, a:session)
+endfunction
+
+function! fireplace#receive (msg)
+  let uri = a:msg['uri']
+  let msg = a:msg['msg']
+  let session = msg['session']
+endfunction
+
+function! fireplace#connect (uri)
+  call fireplace#pycall('vim_nrepl.connect', [a:uri])
+endfunction
+
+function! fireplace#connect_local ()
+  if !exists('b:leiningen_root')
+    echoe 'No Leiningen project found above' expand('%:p')
+    return
+  endif
+
+  let portfile = b:leiningen_root . '/target/repl-port'
+  if getfsize(portfile) > 0
+    let port = matchstr(readfile(portfile, 'b', 1)[0], '\d\+')
+    call fireplace#connect('nrepl://localhost:' . port)
+  else
+    echoe 'No Leiningen REPL running; no port file? @' portfile
+  endif
+endfunction
+
+function! fireplace#start_local ()
+  if !exists('b:leiningen_root')
+    echoe 'No Leiningen project found above' expand('%:p')
+    return
+  endif
+
+  call fireplace#pycall('vim_nrepl.start_local_repl', [b:leiningen_root])
 endfunction
 
 " " }}}1
@@ -1051,46 +1142,5 @@ endfunction
 "   return 'echoerr '.string("Couldn't find " . alternates[0] . " in class path")
 " endfunction
 
-" }}}1
-" Leiningen {{{1
-
-function! s:hunt(start, anchor, pattern) abort
-  let root = simplify(fnamemodify(a:start, ':p:s?[\/]$??'))
-  if !isdirectory(fnamemodify(root, ':h'))
-    return ''
-  endif
-  let previous = ""
-  while root !=# previous
-    if filereadable(root . '/' . a:anchor) && join(readfile(root . '/' . a:anchor, '', 50)) =~# a:pattern
-      return root
-    endif
-    let previous = root
-    let root = fnamemodify(root, ':h')
-  endwhile
-  return ''
-endfunction
-
-function! s:leiningen_init() abort
-  if !exists('b:leiningen_root')
-    let root = s:hunt(expand('%:p'), 'project.clj', '(\s*defproject')
-    if root !=# ''
-      let b:leiningen_root = root
-    endif
-  endif
-  if !exists('b:leiningen_root')
-    return
-  endif
-
-  let b:java_root = b:leiningen_root
-
-  setlocal makeprg=lein efm=%+G
-endfunction
-
-augroup fireplace_leiningen
-  autocmd!
-  autocmd FileType clojure call s:leiningen_init()
-augroup END
-
-" }}}1
 
 " vim:set et sw=2:

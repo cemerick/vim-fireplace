@@ -98,6 +98,10 @@ def connect_local_repl (rootdir):
         pass
 
 def start_local_repl (rootdir, cmd=["lein", "repl", ":headless"]):
+    for uri, conn in state.connections.items():
+        if rootdir == conn.rootdir:
+            return uri
+
     proc = subprocess.Popen(cmd, cwd=rootdir, stdout=subprocess.PIPE,
             # without the stdin pipe, testing on the command line is hard: looks
             # like the subprocess is receiving every other keypress

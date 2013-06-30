@@ -23,9 +23,14 @@ _vim_encoding = vim.eval('&encoding')
 
 def isstring (x): return isinstance(x, (str, unicode))
 
+def _vim_encode_str (s):
+    return s.replace("'", "''").encode(_vim_encoding)
+
 def _vim_encode (input):
     if isstring(input):
-        return "'" + input.replace("'", "''").encode(_vim_encoding) + "'"
+        return "'" + _vim_encode_str(input) + "'"
+    elif isinstance(input, bool):
+        return '1' if input else '0'
     elif isinstance(input, int):
         return repr(input)
     elif isinstance(input, (list, tuple)):

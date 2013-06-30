@@ -1,6 +1,7 @@
 # vim: set fileencoding=utf-8 :
 
-import nrepl, subprocess, re, uuid, os.path, vim
+import nrepl, subprocess, re, os.path, vim
+from uuid import uuid4
 import nrepl_state as state
 from functools import partial
 
@@ -11,10 +12,6 @@ class VimConnection (nrepl.WatchableConnection):
         self.process = process
         # "/optional/root/directory, e.g. where lein was started"
         self.rootdir = rootdir
-
-# {"uri": "uri", "rootdir": "/optional/root/dir",
-#  "msg": {"id": "", "session": "", ...}}
-_response = None
 
 ### vim interop ###
 
@@ -66,20 +63,30 @@ def _vim_error (*msg):
 #     _vim_let("xxx", u"の")
 #     _vim_let("yyy", {u"の": [5, 6, 'b']})
 
-### automatic session tracking ###
+def register_repl_log_buffer (session, bufname):
+    state.sessions[session]['bufname'] = bufname
 
-def _watch_session_responses (uri, msg, wc, key):
-    _response = {"uri": uri, "msg": msg}
-    if wc.rootdir: _response["rootdir"] = wc.rootdir
-    _vim_log(_response)
+def _vim_buffer (bufname):
+    for b in vim.buffers:
+        if b.name == bufname:
+            return b
 
-def _watch_new_sessions (uri, msg, wc, key):
-    session = msg.get("new-session")
-    state.sessions[session] = uri
-    wc.watch("session" + session, {"session": session},
-            partial(_watch_session_responses, uri))
-    _vimcall("fireplace#new_session", {"session": session, "uri": uri})
-    # TODO add connection rootdir if exists
+def _vim_session_buffer (session):
+    # TODO handle missing REPL log buffer, shut down session
+    return _vim_buffer(state.sessions[session]['bufname'])
+
+def _log_append (buf, msg, slot, prefix=""):
+    if slot in msg:
+        lines = msg[slot].strip("\n").split("\n")
+        buf.append(map(lambda s: prefix + s.encode(_vim_encoding), lines))
+
+def update_log (resp):
+    msg = resp['msg']
+    session = msg['session']
+    buf = _vim_session_buffer(session)
+    _log_append(buf, msg, "out", "; ")
+    _log_append(buf, msg, "err", ";! ")
+    _log_append(buf, msg, "value", ";= ")
 
 ### public API ###
 
@@ -88,8 +95,7 @@ def connect (uri, **kwargs):
         return uri
     else:
         c = state.connections[uri] = VimConnection(uri, **kwargs)
-        c.watch("sessions", {"new-session": None},
-                partial(_watch_new_sessions, uri))
+        _vimcall("fireplace#connection_ready", uri)
         return uri
 
 def connect_local_repl (rootdir):
@@ -114,16 +120,59 @@ def start_local_repl (rootdir, cmd=["lein", "repl", ":headless"]):
     port = re.findall(b"\d+", proc.stdout.readline())[0]
     return connect("nrepl://localhost:" + port, process=proc, rootdir=rootdir)
 
-def new_session (uri, clone_existing=None):
-    msg = {"op": "clone"}
+### automatic session tracking ###
+
+def _watch_session_responses (uri, update_fn, msg, wc, key):
+    response = {"uri": uri, "msg": msg}
+    if wc.rootdir: response["rootdir"] = wc.rootdir
+    update_fn(response)
+
+def _watch_register_session (uri, tooling_session, msg, wc, key):
+    wc.unwatch(key)
+
+    session = msg.get("new-session")
+    state.sessions[session] = {'uri': uri, 'tooling_session': tooling_session}
+    wc.watch("session-" + session, {"session": session},
+            partial(_watch_session_responses, uri,
+                # TODO separate callback for tooling session responses
+                _vim_log if tooling_session else update_log))
+
+    sessioninfo = {"session": session, "uri": uri,
+            "tooling_session": tooling_session}
+    if wc.rootdir: sessioninfo["rootdir"] = wc.rootdir
+
+    _vimcall("fireplace#new_session", sessioninfo)
+
+def uuid (): return str(uuid4())
+
+def new_session (uri, tooling_session=False, clone_existing=None):
+    id = uuid()
+    msg = {"op": "clone", "id": id}
     if clone_existing: msg["session"] = clone_existing
-    state.connections[uri].send(msg)
+    conn = state.connections[uri]
+    conn.watch(id, {'id': id},
+            partial(_watch_register_session, uri, tooling_session))
+    conn.send(msg)
 
 def send_on_session (session, message):
     message["session"] = session
-    message["id"] = str(uuid.uuid4())
-    uri = state.sessions[session]
+    message["id"] = uuid()
+    uri = state.sessions[session]['uri']
     state.connections[uri].send(message)
+
+def interactive (session, message):
+    buf = _vim_session_buffer(session)
+    op = message['op']
+    if op == 'eval':
+        _log_append(buf, message, 'code', '')
+    elif op == 'load-file':
+        filename = message.get('file-name', '')
+        _log_append(buf, {'x':';* loading file ' + filename}, 'x')
+
+    send_on_session(session, message)
+
+# def close (session=None, uri=None, rootdir=None):
+#    if session:
 
 
 # TODOs

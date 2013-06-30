@@ -102,6 +102,7 @@ function! s:leiningen_init() abort
     return
   endif
 
+  " TODO used only with some non-leiningen workflow..??
   let b:java_root = b:leiningen_root
 
   setlocal makeprg=lein efm=%+G
@@ -115,25 +116,67 @@ augroup END
 " }}}1
 
 " REPL log buffers
-if !exists('s:session_buffers')
-  let s:session_buffers = {}
+if !exists('s:sessions')
+  let s:sessions = {}
+  let s:target_session = 0
   let s:session_counter = 0
 endif
 
 function! fireplace#new_session (info)
   let s:session_counter += 1
+  let session = a:info['session']
   let a:info['session_number'] = s:session_counter
-  let s:session_buffers[a:info['session']] = a:info
+  let bufname = 'nREPL session ' . s:session_counter .
+        \ ' log ' . get(a:info, 'rootdir', '') .
+        \ ' ' . a:info['uri']
+  let a:info['bufname'] = bufname
+  let s:sessions[session] = a:info
+  exec 'new ' . substitute(bufname, ' ', '\\ ', 'g')
+  " TODO figure out where REPL sessions should be logged, how to control, etc
+  setlocal buftype=nofile noswapfile filetype=clojure
+  call fireplace#pycall('vim_nrepl.register_repl_log_buffer', [session, bufname])
+  let b:nrepl_session = session
+  let s:target_session = session
+  " TODO when a session buffer is closed, close the session, too
 endfunction
+
+function! s:update_target_session ()
+  " TODO make it optional that last focus => change of target
+  if exists('b:nrepl_session')
+    let s:target_session = b:nrepl_session
+  endif
+endfunction
+
+augroup fireplace_target_session
+  autocmd!
+  autocmd BufEnter *.* call s:update_target_session()
+augroup END
 
 function! fireplace#session_buffer (session)
-  return get(s:session_buffers, a:session)
+  return get(s:sessions, a:session)
 endfunction
 
+function! fireplace#interactive (code)
+  call fireplace#pycall('vim_nrepl.interactive',
+        \ [s:target_session, {'op':'eval', 'code':a:code}])
+endfunction
+
+" {"uri": "uri", "rootdir": "/optional/root/dir",
+"  "msg": {"id": "", "session": "", ...}}
 function! fireplace#receive (msg)
-  let uri = a:msg['uri']
-  let msg = a:msg['msg']
-  let session = msg['session']
+endfunction
+
+function! fireplace#open_session (uri)
+  call fireplace#pycall('vim_nrepl.new_session', [a:uri])
+endfunction
+
+function! fireplace#clone_session (uri, existing_session)
+  call fireplace#pycallk('vim_nrepl.new_session', [a:uri],
+        \ {'clone_existing': a:existing_session})
+endfunction
+
+function! fireplace#connection_ready (uri)
+  call fireplace#open_session(a:uri)
 endfunction
 
 function! fireplace#connect (uri)
@@ -146,13 +189,7 @@ function! fireplace#connect_local ()
     return
   endif
 
-  let portfile = b:leiningen_root . '/target/repl-port'
-  if getfsize(portfile) > 0
-    let port = matchstr(readfile(portfile, 'b', 1)[0], '\d\+')
-    call fireplace#connect('nrepl://localhost:' . port)
-  else
-    echoe 'No Leiningen REPL running; no port file? @' portfile
-  endif
+  call fireplace#pycall('vim_nrepl.connect_local_repl', [b:leiningen_root])
 endfunction
 
 function! fireplace#start_local ()

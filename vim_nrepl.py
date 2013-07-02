@@ -102,8 +102,9 @@ def update_log (resp):
     for w in windows:
         w.cursor = (len(buf), 0)
     if len(windows):
-        # need explicit redraw to reveal newly-moved cursor....?
-        # TODO only works if the window in question isn't focused
+        # need explicit redraw to reveal newly-moved cursor, though this
+        # only helps if the window in question is current/focused
+        # TODO may be extraneous if s:cycle_session_buffers is doing its job
         vim.command(":redraw!")
 
 ### public API ###

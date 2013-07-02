@@ -118,30 +118,44 @@ augroup END
 " REPL log buffers
 if !exists('s:sessions')
   let s:sessions = {}
-  let s:target_session = 0
+  let s:target_session = {}
   let s:session_counter = 0
 endif
 
-function! fireplace#new_session (info)
+" {'session': 'session-id', 'uri': 'uri...', 'tooling_session': 0/1,
+" 'rootdir':'/path/to/root'}
+function! fireplace#session_ready (info)
   let s:session_counter += 1
   let session = a:info['session']
   let a:info['session_number'] = s:session_counter
   let bufname = 'nREPL session ' . s:session_counter .
-        \ ' log ' . get(a:info, 'rootdir', '') .
+        \ ' ' . get(a:info, 'rootdir', '') .
         \ ' ' . a:info['uri']
   let a:info['bufname'] = bufname
   let s:sessions[session] = a:info
   exec 'new ' . substitute(bufname, ' ', '\\ ', 'g')
   " TODO figure out where REPL sessions should be logged, how to control, etc
+  " TODO would like this to be nomodifiable, but that affects .append on the
+  " python side, too (and it twiddling modifiable before and after log updates
+  " looks to be too slow)
   setlocal buftype=nofile noswapfile filetype=clojure
+  " TODO provide option for setting custom statusline for all log buffers
+  setlocal statusline=%{fireplace#current_ns()}\ @\ %f 
   call fireplace#pycall('vim_nrepl.register_repl_log_buffer', [session, bufname])
-  let b:nrepl_session = session
-  let s:target_session = session
-  " TODO when a session buffer is closed, close the session, too
+  let b:nrepl_session = a:info
+  let s:target_session = a:info
+  " TODO when a session buffer is closed, close the session too
+  " TODO add some koans? :-)
+  " TODO Cloning an active ClojureScript session won't work (yet)
+  " TODO emit the Clojure version number synchronously with a special ;; comment
+  " + no 'value' output
+  call fireplace#pycall('vim_nrepl.send_on_session',
+        \ [session, {'op':'eval', 'code': '(println "Clojure" (clojure-version))'}])
 endfunction
 
 function! s:update_target_session ()
-  " TODO make it optional that last focus => change of target
+  " TODO make it optional that last focus => change of target, offer
+  " :SetTargetREPLSession or something
   if exists('b:nrepl_session')
     let s:target_session = b:nrepl_session
   endif
@@ -149,16 +163,28 @@ endfunction
 
 augroup fireplace_target_session
   autocmd!
-  autocmd BufEnter *.* call s:update_target_session()
+  autocmd BufEnter * call s:update_target_session()
 augroup END
 
-function! fireplace#session_buffer (session)
-  return get(s:sessions, a:session)
+function! fireplace#update_ns (session, ns)
+  let current_ns = get(s:sessions[a:session], '*ns*', '')
+  let s:sessions[a:session]['*ns*'] = a:ns
+  " flush change through to status lines
+  if a:ns != current_ns
+    redraw!
+  endif
+endfunction
+
+function! fireplace#current_ns ()
+  if has_key(b:nrepl_session, '*ns*')
+    return b:nrepl_session['*ns*']
+  else
+    return ''
 endfunction
 
 function! fireplace#interactive (code)
   call fireplace#pycall('vim_nrepl.interactive',
-        \ [s:target_session, {'op':'eval', 'code':a:code}])
+        \ [s:target_session['session'], {'op':'eval', 'code':a:code}])
 endfunction
 
 " {"uri": "uri", "rootdir": "/optional/root/dir",
@@ -173,6 +199,11 @@ endfunction
 function! fireplace#clone_session (uri, existing_session)
   call fireplace#pycallk('vim_nrepl.new_session', [a:uri],
         \ {'clone_existing': a:existing_session})
+endfunction
+
+" TODO session cloning doesn't actually clone :-P
+function! fireplace#clone_this_session ()
+  call fireplace#clone_session(b:nrepl_session['uri'], b:nrepl_session['session'])
 endfunction
 
 function! fireplace#connection_ready (uri)

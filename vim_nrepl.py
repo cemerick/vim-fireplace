@@ -78,15 +78,33 @@ def _vim_session_buffer (session):
 def _log_append (buf, msg, slot, prefix=""):
     if slot in msg:
         lines = msg[slot].strip("\n").split("\n")
-        buf.append(map(lambda s: prefix + s.encode(_vim_encoding), lines))
+        lines = map(lambda s: prefix + s.encode(_vim_encoding), lines)
+        # avoid empty line at the top
+        if buf[0] == '':
+            buf[:] = lines
+        else:
+            buf.append(lines)
 
 def update_log (resp):
     msg = resp['msg']
     session = msg['session']
     buf = _vim_session_buffer(session)
+    # .cursor is always one line behind, but only while we're updating?! Maybe
+    # some kind of threading problem
+    windows = filter(lambda w: w.buffer.name == buf.name and w.cursor[0] >=
+            len(buf) - 1, vim.windows)
+    if 'ns' in msg:
+        _vimcall('fireplace#update_ns', session, msg['ns'])
     _log_append(buf, msg, "out", "; ")
     _log_append(buf, msg, "err", ";! ")
     _log_append(buf, msg, "value", ";= ")
+    
+    for w in windows:
+        w.cursor = (len(buf), 0)
+    if len(windows):
+        # need explicit redraw to reveal newly-moved cursor....?
+        # TODO only works if the window in question isn't focused
+        vim.command(":redraw!")
 
 ### public API ###
 
@@ -141,7 +159,7 @@ def _watch_register_session (uri, tooling_session, msg, wc, key):
             "tooling_session": tooling_session}
     if wc.rootdir: sessioninfo["rootdir"] = wc.rootdir
 
-    _vimcall("fireplace#new_session", sessioninfo)
+    _vimcall("fireplace#session_ready", sessioninfo)
 
 def uuid (): return str(uuid4())
 

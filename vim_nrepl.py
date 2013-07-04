@@ -64,7 +64,7 @@ def _vim_error (*msg):
 #     _vim_let("yyy", {u"の": [5, 6, 'b']})
 
 def register_repl_log_buffer (session, bufname):
-    state.sessions[session]['bufname'] = bufname
+    state.session_buffers[session] = bufname
 
 def _vim_buffer (bufname):
     for b in vim.buffers:
@@ -73,7 +73,9 @@ def _vim_buffer (bufname):
 
 def _vim_session_buffer (session):
     # TODO handle missing REPL log buffer, shut down session
-    return _vim_buffer(state.sessions[session]['bufname'])
+    for b in vim.buffers:
+        if b.name == state.session_buffers[session]:
+            return b
 
 def _log_append (buf, msg, slot, prefix=""):
     if slot in msg:
@@ -150,7 +152,6 @@ def _watch_register_session (uri, tooling_session, msg, wc, key):
     wc.unwatch(key)
 
     session = msg.get("new-session")
-    state.sessions[session] = {'uri': uri, 'tooling_session': tooling_session}
     wc.watch("session-" + session, {"session": session},
             partial(_watch_session_responses, uri,
                 # TODO separate callback for tooling session responses
@@ -173,13 +174,12 @@ def new_session (uri, tooling_session=False, clone_existing=None):
             partial(_watch_register_session, uri, tooling_session))
     conn.send(msg)
 
-def send_on_session (session, message):
+def send_on_session (uri, session, message):
     message["session"] = session
     message["id"] = uuid()
-    uri = state.sessions[session]['uri']
     state.connections[uri].send(message)
 
-def interactive (session, message):
+def interactive (uri, session, message):
     buf = _vim_session_buffer(session)
     op = message['op']
     if op == 'eval':
@@ -188,7 +188,7 @@ def interactive (session, message):
         filename = message.get('file-name', '')
         _log_append(buf, {'x':';* loading file ' + filename}, 'x')
 
-    send_on_session(session, message)
+    send_on_session(uri, session, message)
 
 # def close (session=None, uri=None, rootdir=None):
 #    if session:

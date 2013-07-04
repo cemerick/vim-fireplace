@@ -4,6 +4,6 @@
 # {"uri": VimConnection}
 connections = {}
 
-# {"sessionid": "uri"}
-sessions = {}
+# {"sessionid": "vim session log buffer name"}
+session_buffers = {}
 

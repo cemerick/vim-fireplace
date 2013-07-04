@@ -150,7 +150,9 @@ function! fireplace#session_ready (info)
   " TODO emit the Clojure version number synchronously with a special ;; comment
   " + no 'value' output
   call fireplace#pycall('vim_nrepl.send_on_session',
-        \ [session, {'op':'eval', 'code': '(println "Clojure" (clojure-version))'}])
+        \ [a:info['uri'], session, 
+        \  {'op':'eval',
+        \   'code': '(println "Clojure" (clojure-version))'}])
 endfunction
 
 function! s:update_target_session ()
@@ -200,7 +202,9 @@ endfunction
 
 function! fireplace#interactive (code)
   call fireplace#pycall('vim_nrepl.interactive',
-        \ [s:target_session['session'], {'op':'eval', 'code':a:code}])
+        \ [s:target_session['uri'],
+        \  s:target_session['session'],
+        \  {'op':'eval', 'code':a:code}])
 endfunction
 
 " {"uri": "uri", "rootdir": "/optional/root/dir",

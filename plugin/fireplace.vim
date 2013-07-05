@@ -225,8 +225,9 @@ function! fireplace#connection_ready (uri)
   call fireplace#open_session(a:uri)
 endfunction
 
-function! fireplace#connect (uri)
-  call fireplace#pycall('vim_nrepl.connect', [a:uri])
+function! fireplace#connect (uri_or_port)
+  let uri = a:uri_or_port =~ '^\d\+$' ? 'nrepl://localhost:' . a:uri_or_port : a:uri_or_port
+  call fireplace#pycall('vim_nrepl.connect', [uri])
 endfunction
 
 function! fireplace#connect_local ()

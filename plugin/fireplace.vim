@@ -380,100 +380,26 @@ endfunction
 "     endif
 "   endfor
 " endfunction
-" 
-" function! s:register_connection(conn, ...)
-"   call insert(s:repls, extend({'connection': a:conn}, deepcopy(s:repl)))
-"   if a:0 && a:1 !=# ''
-"     let s:repl_paths[a:1] = s:repls[0]
-"   endif
-"   return s:repls[0]
-" endfunction
-" 
+"
 " " }}}1
 " " :Connect {{{1
 " 
-" command! -bar -complete=customlist,s:connect_complete -nargs=+ FireplaceConnect :exe s:Connect(<f-args>)
-" 
-" function! fireplace#input_host_port()
-"   let arg = input('Host> ', 'localhost')
-"   if arg ==# ''
-"     return ''
-"   endif
-"   echo "\n"
-"   let arg .= ':' . input('Port> ')
-"   if arg =~# ':$'
-"     return ''
-"   endif
-"   echo "\n"
-"   return arg
-" endfunction
-" 
-" function! s:protos()
-"   return map(split(globpath(&runtimepath, 'autoload/*/fireplace_connection.vim'), "\n"), 'fnamemodify(v:val, ":h:t")')
-" endfunction
-" 
-" function! s:connect_complete(A, L, P)
-"   let proto = matchstr(a:A, '\w\+\ze://')
-"   if proto ==# ''
-"     let options = map(s:protos(), 'v:val."://"')
-"   else
-"     let rest = matchstr(a:A, '://\zs.*')
-"     try
-"       let options = {proto}#fireplace_connection#complete(rest)
-"     catch /^Vim(let):E117/
-"       let options = ['localhost:']
-"     endtry
-"     call map(options, 'proto."://".v:val')
-"   endif
-"   if a:A !=# ''
-"     call filter(options, 'v:val[0 : strlen(a:A)-1] ==# a:A')
-"   endif
-"   return options
-" endfunction
-" 
-" function! s:Connect(arg, ...)
-"   if a:arg =~# '^\w\+://'
-"     let [proto, arg] = split(a:arg, '://')
-"   elseif a:arg !=# ''
-"     return 'echoerr '.string('Usage: :Connect proto://...')
-"   else
-"     let protos = s:protos()
-"     if empty(protos)
-"       return 'echoerr '.string('No protocols available')
-"     endif
-"     let proto = s:inputlist('Protocol> ', protos)
-"     if proto ==# ''
-"       return
-"     endif
-"     redraw!
-"     echo ':Connect'
-"     echo 'Protocol> '.proto
-"     let arg = {proto}#fireplace_connection#prompt()
-"   endif
-"   try
-"     let connection = {proto}#fireplace_connection#open(arg)
-"   catch /.*/
-"     return 'echoerr '.string(v:exception)
-"   endtry
-"   if type(connection) !=# type({}) || empty(connection)
-"     return ''
-"   endif
-"   let client = s:register_connection(connection)
-"   echo 'Connected to '.proto.'://'.arg
-"   let path = fnamemodify(exists('b:java_root') ? b:java_root : fnamemodify(expand('%'), ':p:s?.*\zs[\/]src[\/].*??'), ':~')
-"   let root = a:0 ? expand(a:1) : input('Scope connection to: ', path, 'dir')
-"   if root !=# '' && root !=# '-'
-"     let s:repl_paths[fnamemodify(root, ':p:s?.\zs[\/]$??')] = client
-"   endif
-"   return ''
-" endfunction
-" 
-" augroup fireplace_connect
-"   autocmd!
-"   autocmd FileType clojure command! -bar -complete=customlist,s:connect_complete -nargs=+ Connect :FireplaceConnect <args>
-" augroup END
-" 
-" " }}}1
+
+" available at any time
+command! -bar -nargs=1 REPLConnect :call fireplace#connect(<f-args>)
+
+" buffer-local
+command! -bar FireplaceREPLConnectProject :exe fireplace#connect_local()
+command! -bar FireplaceREPLStartProject :exe fireplace#start_local()
+
+augroup fireplace_connect
+  autocmd!
+  " TODO what's the point of the indirection here?
+  autocmd FileType clojure command! -bar REPLConnectProject :FireplaceREPLConnectProject
+  autocmd FileType clojure command! -bar REPLStartProject :FireplaceREPLStartProject
+augroup END
+
+" }}}1
 " 
 " " Client {{{1
 " 
@@ -776,32 +702,34 @@ endfunction
 "   endif
 "   return ''
 " endfunction
-" 
-" " If we call input() directly inside a try, and the user opens the command
-" " line window and tries to switch out of it (such as with ctrl-w), Vim will
-" " crash when the command line window closes.  Adding an indirect function call
-" " works around this.
-" function! s:actually_input(...)
-"   return call(function('input'), a:000)
-" endfunction
-" 
-" function! s:input(default) abort
-"   if !exists('g:FIREPLACE_HISTORY') || type(g:FIREPLACE_HISTORY) != type([])
-"     unlet! g:FIREPLACE_HISTORY
-"     let g:FIREPLACE_HISTORY = []
-"   endif
-"   try
-"     let s:input = bufnr('%')
-"     let s:oldhist = s:histswap(g:FIREPLACE_HISTORY)
-"     return s:actually_input(fireplace#ns().'=> ', a:default, 'customlist,fireplace#eval_complete')
-"   finally
-"     unlet! s:input
-"     if exists('s:oldhist')
-"       let g:FIREPLACE_HISTORY = s:histswap(s:oldhist)
-"     endif
-"   endtry
-" endfunction
-" 
+
+" If we call input() directly inside a try, and the user opens the command
+" line window and tries to switch out of it (such as with ctrl-w), Vim will
+" crash when the command line window closes.  Adding an indirect function call
+" works around this.
+function! s:actually_input(...)
+  return call(function('input'), a:000)
+endfunction
+
+" TODO I don't understand why this fn is taking a default input
+function! s:input(default) abort
+  " TODO history should optionally be either per-project or global
+  if !exists('g:FIREPLACE_HISTORY') || type(g:FIREPLACE_HISTORY) != type([])
+    unlet! g:FIREPLACE_HISTORY
+    let g:FIREPLACE_HISTORY = []
+  endif
+  try
+    let s:input = bufnr('%')
+    let s:oldhist = s:histswap(g:FIREPLACE_HISTORY)
+    return s:actually_input(fireplace#current_ns().'=> ', a:default, 'customlist,fireplace#eval_complete')
+  finally
+    unlet! s:input
+    if exists('s:oldhist')
+      let g:FIREPLACE_HISTORY = s:histswap(s:oldhist)
+    endif
+  endtry
+endfunction
+
 " function! s:inputclose() abort
 "   let l = substitute(getcmdline(), '"\%(\\.\|[^"]\)*"\|\\.', '', 'g')
 "   let open = len(substitute(l, '[^(]', '', 'g'))
@@ -812,16 +740,16 @@ endfunction
 "     return ")"
 "   endif
 " endfunction
-" 
-" function! s:inputeval() abort
-"   let input = s:input('')
-"   redraw
-"   if input !=# ''
-"     call fireplace#echo_session_eval(input)
-"   endif
-"   return ''
-" endfunction
-" 
+ 
+function! s:inputeval() abort
+  let input = s:input('')
+  redraw
+  if input !=# ''
+    call fireplace#interactive(input)
+  endif
+  return ''
+endfunction
+ 
 " function! s:recall() abort
 "   try
 "     cnoremap <expr> ) <SID>inputclose()
@@ -837,19 +765,19 @@ endfunction
 "     silent! cunmap )
 "   endtry
 " endfunction
-" 
-" function! s:histswap(list) abort
-"   let old = []
-"   for i in range(1, histnr('@') * (histnr('@') > 0))
-"     call extend(old, [histget('@', i)])
-"   endfor
-"   call histdel('@')
-"   for entry in a:list
-"     call histadd('@', entry)
-"   endfor
-"   return old
-" endfunction
-" 
+
+function! s:histswap(list) abort
+  let old = []
+  for i in range(1, histnr('@') * (histnr('@') > 0))
+    call extend(old, [histget('@', i)])
+  endfor
+  call histdel('@')
+  for entry in a:list
+    call histadd('@', entry)
+  endfor
+  return old
+endfunction
+
 " nnoremap <silent> <Plug>FireplacePrintLast :exe <SID>print_last()<CR>
 " nnoremap <silent> <Plug>FireplacePrint  :<C-U>set opfunc=<SID>printop<CR>g@
 " xnoremap <silent> <Plug>FireplacePrint  :<C-U>call <SID>printop(visualmode())<CR>
@@ -860,7 +788,7 @@ endfunction
 " nnoremap <silent> <Plug>FireplaceEdit   :<C-U>set opfunc=<SID>editop<CR>g@
 " xnoremap <silent> <Plug>FireplaceEdit   :<C-U>call <SID>editop(visualmode())<CR>
 " 
-" nnoremap          <Plug>FireplacePrompt :exe <SID>inputeval()<CR>
+nnoremap          <Plug>FireplacePrompt :exe <SID>inputeval()<CR>
 " 
 " noremap!          <Plug>FireplaceRecall <C-R>=<SID>recall()<CR>
 " 
@@ -884,8 +812,8 @@ endfunction
 "   endif
 "   return ''
 " endfunction
-" 
-" function! s:setup_eval() abort
+ 
+function! s:setup_eval() abort
 "   command! -buffer -bang -range=0 -nargs=? -complete=customlist,fireplace#eval_complete Eval :exe s:Eval(<bang>0, <line1>, <line2>, <count>, <q-args>)
 "   command! -buffer -bang -bar -count=1 Last exe s:Last(<bang>0, <count>)
 " 
@@ -898,12 +826,12 @@ endfunction
 "   nmap <buffer> cq <Plug>FireplaceEdit
 "   nmap <buffer> cqq <Plug>FireplaceEditab
 " 
-"   nmap <buffer> cqp <Plug>FireplacePrompt
+  nmap <buffer> cqp <Plug>FireplacePrompt
 "   exe 'nmap <buffer> cqc <Plug>FireplacePrompt' . &cedit . 'i'
 " 
 "   map! <buffer> <C-R>( <Plug>FireplaceRecall
-" endfunction
-" 
+endfunction
+ 
 " function! s:setup_historical()
 "   setlocal readonly nomodifiable
 "   nnoremap <buffer><silent>q :bdelete<CR>
@@ -916,17 +844,17 @@ endfunction
 " function! s:cmdwinleave()
 "   setlocal filetype< omnifunc<
 " endfunction
-" 
-" augroup fireplace_eval
-"   autocmd!
-"   autocmd FileType clojure call s:setup_eval()
+ 
+augroup fireplace_eval
+  autocmd!
+  autocmd FileType clojure call s:setup_eval()
 "   autocmd BufReadPost * if has_key(s:qffiles, expand('<amatch>:p')) |
 "         \   call s:setup_historical() |
 "         \ endif
 "   autocmd CmdWinEnter @ if exists('s:input') | call s:cmdwinenter() | endif
 "   autocmd CmdWinLeave @ if exists('s:input') | call s:cmdwinleave() | endif
-" augroup END
-" 
+augroup END
+ 
 " " }}}1
 " " :Require {{{1
 " 

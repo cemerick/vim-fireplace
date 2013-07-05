@@ -140,6 +140,7 @@ function! fireplace#session_ready (info)
   " looks to be too slow)
   setlocal buftype=nofile noswapfile filetype=clojure
   " TODO provide option for setting custom statusline for all log buffers
+  " TODO autocmd to swap statusline when a REPL log buffer is switched to/from
   setlocal statusline=%{fireplace#current_ns()}\ @\ %f 
   call fireplace#pycall('vim_nrepl.register_repl_log_buffer', [session, bufname])
   let b:nrepl_session = a:info
@@ -245,6 +246,8 @@ function! fireplace#start_local ()
     return
   endif
 
+  echo 'Starting `lein repl` @ ' . b:leiningen_root
+  " TODO big blocking call here.....
   call fireplace#pycall('vim_nrepl.start_local_repl', [b:leiningen_root])
 endfunction
 

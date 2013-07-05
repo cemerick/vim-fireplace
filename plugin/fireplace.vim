@@ -166,22 +166,17 @@ endfunction
 " this keeps the cursor of unfocused REPL log buffers visible
 " TODO only touches the first window containing each buffer, so a REPL log shown
 " in multiple windows is only going to be redrawn in one of them
-function! s:redraw_session_windows ()
+function! s:redraw_windows ()
   let current_window = winnr()
-  for bufnr in tabpagebuflist()
-    exe 'keepjumps ' . bufwinnr(bufnr) . 'wincmd w'
-    if exists('b:nrepl_session')
-      redraw!
-    endif
-  endfor
+  windo redraw!
   exe 'keepjumps ' . current_window . 'wincmd w'
 endfunction
 
 augroup fireplace_session_updates
   autocmd!
   autocmd BufEnter * call s:update_target_session()
-  autocmd CursorHold * call s:redraw_session_windows()
-  autocmd CursorHoldI * call s:redraw_session_windows()
+  autocmd CursorHold * call s:redraw_windows()
+  autocmd CursorHoldI * call s:redraw_windows()
 augroup END
 
 function! fireplace#update_ns (session, ns)

@@ -632,21 +632,6 @@ augroup END
 "   endtry
 " endfunction
 " 
-" function! s:filterop(type) abort
-"   let reg_save = @@
-"   try
-"     let expr = s:opfunc(a:type)
-"     let @@ = matchstr(expr, '^\n\+').fireplace#session_eval(expr).matchstr(expr, '\n\+$')
-"     if @@ !~# '^\n*$'
-"       normal! gvp
-"     endif
-"   catch /^Clojure:/
-"     return ''
-"   finally
-"     let @@ = reg_save
-"   endtry
-" endfunction
-" 
 " function! s:printop(type) abort
 "   let s:todo = s:opfunc(a:type)
 "   call feedkeys("\<Plug>FireplacePrintLast")
@@ -782,9 +767,6 @@ endfunction
 " nnoremap <silent> <Plug>FireplacePrint  :<C-U>set opfunc=<SID>printop<CR>g@
 " xnoremap <silent> <Plug>FireplacePrint  :<C-U>call <SID>printop(visualmode())<CR>
 " 
-" nnoremap <silent> <Plug>FireplaceFilter :<C-U>set opfunc=<SID>filterop<CR>g@
-" xnoremap <silent> <Plug>FireplaceFilter :<C-U>call <SID>filterop(visualmode())<CR>
-" 
 " nnoremap <silent> <Plug>FireplaceEdit   :<C-U>set opfunc=<SID>editop<CR>g@
 " xnoremap <silent> <Plug>FireplaceEdit   :<C-U>call <SID>editop(visualmode())<CR>
 " 
@@ -819,9 +801,6 @@ function! s:setup_eval() abort
 " 
 "   nmap <buffer> cp <Plug>FireplacePrint
 "   nmap <buffer> cpp <Plug>FireplacePrintab
-" 
-"   nmap <buffer> c! <Plug>FireplaceFilter
-"   nmap <buffer> c!! <Plug>FireplaceFilterab
 " 
 "   nmap <buffer> cq <Plug>FireplaceEdit
 "   nmap <buffer> cqq <Plug>FireplaceEditab

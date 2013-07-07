@@ -24,10 +24,21 @@ except ValueError:
 import vim_nrepl
 EOF
 
+function! fireplace#pystring (x)
+  if type(a:x) == type("")
+    return "''" . string(substitute(a:x, '\\', '\\\\', 'g')) . "''"
+  elseif type(a:x) == type([])
+    return '[' . join(map(a:x, 'fireplace#pystring(v:val)'), ',') . ']'
+  elseif type(a:x) == type({})
+    return '{' . join(values(map(a:x, 'fireplace#pystring(v:key) . ":" . fireplace#pystring(v:val)')), ',') . '}'
+  else
+    return string(a:x)
+  endfunction
+
 function! fireplace#pycallk (fn, args, kwargs)
-  let repr_args = join(map(deepcopy(a:args), 'string(v:val)'), ',')
+  let repr_args = join(map(deepcopy(a:args), 'fireplace#pystring(v:val)'), ',')
   let repr_kwargs = join(values(map(deepcopy(a:kwargs),
-        \ 'v:key . "=" . string(v:val)')), ',')
+        \ 'v:key . "=" . fireplace#pystring(v:val)')), ',')
   execute 'py ' . a:fn . '(' . repr_args .
         \ (repr_args !=# "" && repr_kwargs !=# "" ? ',' : '') .
         \ repr_kwargs . ')'

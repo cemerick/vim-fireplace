@@ -799,7 +799,7 @@ nnoremap          <Plug>FireplacePrompt :exe <SID>inputeval()<CR>
 function! s:setup_eval() abort
   command! -buffer -bang -range=0 -nargs=? -complete=customlist,fireplace#eval_complete Eval :exe s:Eval(<bang>0, <line1>, <line2>, <count>, <q-args>)
 
-  nmap <buffer> cx :Eval<cr>
+  nmap <buffer> <silent> cx :Eval<cr>
   
   nmap <buffer> cp <Plug>FireplacePrint
   nmap <buffer> cpp <Plug>FireplacePrintab

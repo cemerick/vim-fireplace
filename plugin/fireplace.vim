@@ -140,7 +140,7 @@ function! fireplace#session_ready (info)
   let session = a:info['session']
   let a:info['session_number'] = s:session_counter
   let bufname = 'nREPL session ' . s:session_counter .
-        \ ' ' . get(a:info, 'rootdir', '') .
+        \ ' ' . fnamemodify(get(a:info, 'rootdir', '<remote>'), ':t') .
         \ ' ' . a:info['uri']
   let a:info['bufname'] = bufname
   let s:sessions[session] = a:info

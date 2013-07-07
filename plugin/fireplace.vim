@@ -628,7 +628,7 @@ augroup END
 " " }}}1
 " " Eval {{{1
 " 
-" let fireplace#skip = 'synIDattr(synID(line("."),col("."),1),"name") =~? "comment\\|string\\|char"'
+let fireplace#skip = 'synIDattr(synID(line("."),col("."),1),"name") =~? "comment\\|string\\|char"'
 
 function! s:opfunc(type) abort
   let sel_save = &selection
@@ -670,44 +670,46 @@ endfunction
 "     call fireplace#echo_session_eval(input)
 "   endif
 " endfunction
-" 
-" function! s:Eval(bang, line1, line2, count, args) abort
-"   if a:args !=# ''
-"     let expr = a:args
-"   else
-"     if a:count ==# 0
-"       normal! ^
-"       let line1 = searchpair('(','',')', 'bcrn', g:fireplace#skip)
-"       let line2 = searchpair('(','',')', 'rn', g:fireplace#skip)
-"     else
-"       let line1 = a:line1
-"       let line2 = a:line2
-"     endif
-"     if !line1 || !line2
-"       return ''
-"     endif
-"     let expr = join(getline(line1, line2), "\n")
-"     if a:bang
-"       exe line1.','.line2.'delete _'
-"     endif
-"   endif
-"   if a:bang
-"     try
-"       let result = fireplace#session_eval(expr)
-"       if a:args !=# ''
-"         call append(a:line1, result)
-"         exe a:line1
-"       else
-"         call append(a:line1-1, result)
-"         exe a:line1-1
-"       endif
-"     catch /^Clojure:/
-"     endtry
-"   else
-"     call fireplace#echo_session_eval(expr)
-"   endif
-"   return ''
-" endfunction
+ 
+function! s:Eval(bang, line1, line2, count, args) abort
+  if a:args !=# ''
+    let expr = a:args
+  else
+    if a:count ==# 0
+      normal! ^
+      let line1 = searchpair('(','',')', 'bcrn', g:fireplace#skip)
+      let line2 = searchpair('(','',')', 'rn', g:fireplace#skip)
+    else
+      let line1 = a:line1
+      let line2 = a:line2
+    endif
+    if !line1 || !line2
+      return ''
+    endif
+    let expr = join(getline(line1, line2), "\n")
+    " TODO remove support for bang
+    if a:bang
+      exe line1.','.line2.'delete _'
+    endif
+  endif
+  " TODO remove support for bang
+  if a:bang
+    try
+      let result = fireplace#eval(expr)
+      if a:args !=# ''
+        call append(a:line1, result)
+        exe a:line1
+      else
+        call append(a:line1-1, result)
+        exe a:line1-1
+      endif
+    catch /^Clojure:/
+    endtry
+  else
+    call fireplace#eval(expr)
+  endif
+  return ''
+endfunction
 
 " If we call input() directly inside a try, and the user opens the command
 " line window and tries to switch out of it (such as with ctrl-w), Vim will
@@ -793,32 +795,12 @@ xnoremap <silent> <Plug>FireplacePrint  :<C-U>call <SID>printop(visualmode())<CR
 nnoremap          <Plug>FireplacePrompt :exe <SID>inputeval()<CR>
 " 
 " noremap!          <Plug>FireplaceRecall <C-R>=<SID>recall()<CR>
-" 
-" function! s:Last(bang, count) abort
-"   if len(s:history) < a:count
-"     return 'echoerr "History entry not found"'
-"   endif
-"   let history = s:qfhistory()
-"   let last = s:qfhistory()[a:count-1]
-"   execute 'pedit '.last.filename
-"   if !&previewwindow
-"     let nr = winnr()
-"     wincmd p
-"     wincmd P
-"   endif
-"   call setloclist(0, history)
-"   silent exe 'llast '.(len(history)-a:count+1)
-"   if exists('nr') && a:bang
-"     wincmd p
-"     exe nr.'wincmd w'
-"   endif
-"   return ''
-" endfunction
  
 function! s:setup_eval() abort
-"   command! -buffer -bang -range=0 -nargs=? -complete=customlist,fireplace#eval_complete Eval :exe s:Eval(<bang>0, <line1>, <line2>, <count>, <q-args>)
-"   command! -buffer -bang -bar -count=1 Last exe s:Last(<bang>0, <count>)
+  command! -buffer -bang -range=0 -nargs=? -complete=customlist,fireplace#eval_complete Eval :exe s:Eval(<bang>0, <line1>, <line2>, <count>, <q-args>)
 
+  nmap <buffer> cx :Eval<cr>
+  
   nmap <buffer> cp <Plug>FireplacePrint
   nmap <buffer> cpp <Plug>FireplacePrintab
 

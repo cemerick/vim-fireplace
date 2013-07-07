@@ -201,13 +201,29 @@ function! fireplace#update_ns (session, ns)
 endfunction
 
 function! fireplace#current_ns ()
-  if has_key(b:nrepl_session, '*ns*')
+  if exists('b:nrepl_session') && has_key(b:nrepl_session, '*ns*')
     return b:nrepl_session['*ns*']
   else
     return ''
 endfunction
 
-function! fireplace#interactive (code)
+function! fireplace#target_session_ns ()
+  return get(s:target_session, '*ns*', '')
+endfunction
+
+
+function! fireplace#send_on_session (message)
+  call fireplace#pycall('vim_nrepl.send_on_session',
+        \ [s:target_session['uri'],
+        \  s:target_session['session'],
+        \  a:message])
+endfunction
+
+function! fireplace#eval (code)
+  call fireplace#send_on_session({'op': 'eval', 'code': a:code})
+endfunction
+
+function! fireplace#interactive_eval (code)
   call fireplace#pycall('vim_nrepl.interactive',
         \ [s:target_session['uri'],
         \  s:target_session['session'],
@@ -613,46 +629,40 @@ augroup END
 " " Eval {{{1
 " 
 " let fireplace#skip = 'synIDattr(synID(line("."),col("."),1),"name") =~? "comment\\|string\\|char"'
-" 
-" function! s:opfunc(type) abort
-"   let sel_save = &selection
-"   let cb_save = &clipboard
-"   let reg_save = @@
-"   try
-"     set selection=inclusive clipboard-=unnamed clipboard-=unnamedplus
-"     if a:type =~ '^\d\+$'
-"       silent exe 'normal! ^v'.a:type.'$hy'
-"     elseif a:type =~# '^.$'
-"       silent exe "normal! `<" . a:type . "`>y"
-"     elseif a:type ==# 'line'
-"       silent exe "normal! '[V']y"
-"     elseif a:type ==# 'block'
-"       silent exe "normal! `[\<C-V>`]y"
-"     elseif a:type ==# 'outer'
-"       call searchpair('(','',')', 'Wbcr', g:fireplace#skip)
-"       silent exe "normal! vaby"
-"     else
-"       silent exe "normal! `[v`]y"
-"     endif
-"     redraw
-"     return @@
-"   finally
-"     let @@ = reg_save
-"     let &selection = sel_save
-"     let &clipboard = cb_save
-"   endtry
-" endfunction
-" 
-" function! s:printop(type) abort
-"   let s:todo = s:opfunc(a:type)
-"   call feedkeys("\<Plug>FireplacePrintLast")
-" endfunction
-" 
-" function! s:print_last() abort
-"   call fireplace#echo_session_eval(s:todo)
-"   return ''
-" endfunction
-" 
+
+function! s:opfunc(type) abort
+  let sel_save = &selection
+  let cb_save = &clipboard
+  let reg_save = @@
+  try
+    set selection=inclusive clipboard-=unnamed clipboard-=unnamedplus
+    if a:type =~ '^\d\+$'
+      silent exe 'normal! ^v'.a:type.'$hy'
+    elseif a:type =~# '^.$'
+      silent exe "normal! `<" . a:type . "`>y"
+    elseif a:type ==# 'line'
+      silent exe "normal! '[V']y"
+    elseif a:type ==# 'block'
+      silent exe "normal! `[\<C-V>`]y"
+    elseif a:type ==# 'outer'
+      call searchpair('(','',')', 'Wbcr', g:fireplace#skip)
+      silent exe "normal! vaby"
+    else
+      silent exe "normal! `[v`]y"
+    endif
+    redraw
+    return @@
+  finally
+    let @@ = reg_save
+    let &selection = sel_save
+    let &clipboard = cb_save
+  endtry
+endfunction
+
+function! s:printop(type) abort
+  call fireplace#eval(s:opfunc(a:type))
+endfunction
+
 " function! s:editop(type) abort
 "   call feedkeys(&cedit . "\<Home>", 'n')
 "   let input = s:input(substitute(substitute(s:opfunc(a:type), "\s*;[^\n]*", '', 'g'), '\n\+\s*', ' ', 'g'))
@@ -741,7 +751,7 @@ function! s:inputeval() abort
   let input = s:input('')
   redraw
   if input !=# ''
-    call fireplace#interactive(input)
+    call fireplace#interactive_eval(input)
   endif
   return ''
 endfunction
@@ -774,10 +784,9 @@ function! s:histswap(list) abort
   return old
 endfunction
 
-" nnoremap <silent> <Plug>FireplacePrintLast :exe <SID>print_last()<CR>
-" nnoremap <silent> <Plug>FireplacePrint  :<C-U>set opfunc=<SID>printop<CR>g@
-" xnoremap <silent> <Plug>FireplacePrint  :<C-U>call <SID>printop(visualmode())<CR>
-" 
+nnoremap <silent> <Plug>FireplacePrint  :<C-U>set opfunc=<SID>printop<CR>g@
+xnoremap <silent> <Plug>FireplacePrint  :<C-U>call <SID>printop(visualmode())<CR>
+
 " nnoremap <silent> <Plug>FireplaceEdit   :<C-U>set opfunc=<SID>editop<CR>g@
 " xnoremap <silent> <Plug>FireplaceEdit   :<C-U>call <SID>editop(visualmode())<CR>
 " 
@@ -809,10 +818,10 @@ nnoremap          <Plug>FireplacePrompt :exe <SID>inputeval()<CR>
 function! s:setup_eval() abort
 "   command! -buffer -bang -range=0 -nargs=? -complete=customlist,fireplace#eval_complete Eval :exe s:Eval(<bang>0, <line1>, <line2>, <count>, <q-args>)
 "   command! -buffer -bang -bar -count=1 Last exe s:Last(<bang>0, <count>)
-" 
-"   nmap <buffer> cp <Plug>FireplacePrint
-"   nmap <buffer> cpp <Plug>FireplacePrintab
-" 
+
+  nmap <buffer> cp <Plug>FireplacePrint
+  nmap <buffer> cpp <Plug>FireplacePrintab
+
 "   nmap <buffer> cq <Plug>FireplaceEdit
 "   nmap <buffer> cqq <Plug>FireplaceEditab
 " 

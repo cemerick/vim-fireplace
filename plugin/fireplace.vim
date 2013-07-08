@@ -26,7 +26,11 @@ EOF
 
 function! fireplace#pystring (x)
   if type(a:x) == type("")
-    return "''" . string(substitute(a:x, '\\', '\\\\', 'g')) . "''"
+    " TODO with all the patching up we're doing here, at what point do we stop
+    " using vim's `string()`?
+    let x = string(substitute(a:x, '\\', '\\\\', 'g'))
+    let x = substitute(x, "''", "'", 'g')
+    return "''" . x . "''"
   elseif type(a:x) == type([])
     return '[' . join(map(a:x, 'fireplace#pystring(v:val)'), ',') . ']'
   elseif type(a:x) == type({})
@@ -228,6 +232,16 @@ function! fireplace#interactive_eval (code)
         \ [s:target_session['uri'],
         \  s:target_session['session'],
         \  {'op':'eval', 'code':a:code}])
+endfunction
+
+function! fireplace#load_file ()
+  " TODO isn't there an easy way to get the contents of a buffer?
+  let msg = {'op': 'load-file',
+        \ 'file': join(getline(1, '$'), "\n"),
+        \ 'file-name': fnamemodify(bufname('%'), ':t'),
+        \ 'file-path': expand('%:p')}
+  " TODO file-path should be source-root-relative; tough to reliably determine
+  call fireplace#send_on_session(msg)
 endfunction
 
 " {"uri": "uri", "rootdir": "/optional/root/dir",
@@ -798,8 +812,10 @@ nnoremap          <Plug>FireplacePrompt :exe <SID>inputeval()<CR>
  
 function! s:setup_eval() abort
   command! -buffer -bang -range=0 -nargs=? -complete=customlist,fireplace#eval_complete Eval :exe s:Eval(<bang>0, <line1>, <line2>, <count>, <q-args>)
+  command! -buffer LoadFile :call fireplace#load_file()
 
   nmap <buffer> <silent> cx :Eval<cr>
+  nmap <buffer> <silent> cl :LoadFile<cr>
   
   nmap <buffer> cp <Plug>FireplacePrint
   nmap <buffer> cpp <Plug>FireplacePrintab

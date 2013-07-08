@@ -190,6 +190,9 @@ endfunction
 
 augroup fireplace_session_updates
   autocmd!
+  " TODO last-focussed feels like a bad heuristic for changing target session;
+  " should probably make this optional, and provide a :SwitchTargetSession
+  " command
   autocmd BufEnter * call s:update_target_session()
   autocmd CursorHold * call s:redraw_windows()
   autocmd CursorHoldI * call s:redraw_windows()
@@ -215,7 +218,6 @@ function! fireplace#target_session_ns ()
   return get(s:target_session, '*ns*', '')
 endfunction
 
-
 function! fireplace#send_on_session (message)
   call fireplace#pycall('vim_nrepl.send_on_session',
         \ [s:target_session['uri'],
@@ -234,10 +236,14 @@ function! fireplace#interactive_eval (code)
         \  {'op':'eval', 'code':a:code}])
 endfunction
 
+function! s:buffer_contents ()
+  return join(getline(1, '$'), "\n")
+endfunction
+
 function! fireplace#load_file ()
   " TODO isn't there an easy way to get the contents of a buffer?
   let msg = {'op': 'load-file',
-        \ 'file': join(getline(1, '$'), "\n"),
+        \ 'file': s:buffer_contents(),
         \ 'file-name': fnamemodify(bufname('%'), ':t'),
         \ 'file-path': expand('%:p')}
   " TODO file-path should be source-root-relative; tough to reliably determine
@@ -299,6 +305,89 @@ function! fireplace#start_local ()
   echo 'Starting `lein repl` @ ' . b:leiningen_root
   " TODO big blocking call here.....
   call fireplace#pycall('vim_nrepl.start_local_repl', [b:leiningen_root])
+endfunction
+
+" this is only here because `let`-ing fireplace#target_session instead of
+" s:target_session doesn't seem to work!?
+function! fireplace#target_session ()
+  return s:target_session
+endfunction
+
+function! s:beep ()
+  exe "normal! \<esc>"
+endfunction
+
+let s:last_history_offset = 0
+
+function! s:reset_history_offset ()
+  let s:last_history_offset = 0
+endfunction
+
+function! s:repl_input_history (offset)
+  let newoffset = s:last_history_offset + a:offset
+  let entry = get(g:FIREPLACE_HISTORY, newoffset)
+  if newoffset == 0 || newoffset == -len(g:FIREPLACE_HISTORY) - 1
+    call s:beep()
+  else
+    let s:last_history_offset = newoffset
+    exe "normal! ggdG"
+    call append(0, split(entry, "\n"))
+    exe "normal! Gdd$"
+  endif
+endfunction
+
+function! s:repl_input_eval ()
+  call s:reset_history_offset()
+  let code = s:buffer_contents()
+  if code != ""
+    let existing_history = index(g:FIREPLACE_HISTORY, code)
+    if existing_history != -1
+      call remove(g:FIREPLACE_HISTORY, existing_history)
+    endif
+    call add(g:FIREPLACE_HISTORY, code)
+    call fireplace#interactive_eval(code)
+    exe "normal! ggdG"
+  endif
+endfunction
+
+" function! s:maybe_repl_input_eval ()
+"   let lines = getline('.', '$')
+"   let lines[0] = lines[0][col('.'):]
+"   for line in lines
+"     if line !~ '\s*'
+"       return
+"     endif
+"   endfor
+"   call s:repl_input_eval()
+" endfunction
+
+function! fireplace#repl_input ()
+  let bufname = '*nREPL input*'
+  let winnr = bufwinnr(bufname)
+  if winnr != -1
+    exe winnr . 'wincmd w'
+  else
+    exe 'belowright new ' . bufname
+    exe "normal! 10\<C-W>_" 
+  endif
+
+  setlocal buftype=nofile noswapfile filetype=clojure
+  setlocal statusline=%f\ =>\ %{fireplace#target_session_ns()}\ %{fireplace#target_session()['bufname']}
+
+  nmap <buffer> <silent> <C-CR> :call <SID>repl_input_eval()<cr>
+  imap <buffer> <silent> <C-CR> <esc>:call <SID>repl_input_eval()<cr>a
+  " too many <CR>'s running around for this to work, too clever
+  " imap <buffer> <silent> <CR> <esc>:call <SID>maybe_repl_input_eval()<cr>a
+
+  nmap <buffer> <silent> <C-Up> :call <SID>repl_input_history(-1)<cr>
+  imap <buffer> <silent> <C-Up> <esc>:call <SID>repl_input_history(-1)<cr>a
+  nmap <buffer> <silent> <C-Down> :call <SID>repl_input_history(1)<cr>
+  imap <buffer> <silent> <C-Down> <esc>:call <SID>repl_input_history(1)<cr>a
+  " TODO really want history to:
+  " * reset to tail after any manual user edit
+  " * recall original buffer contents if user <C-Down>s past the tail
+
+  :startinsert
 endfunction
 
 " " }}}1
@@ -390,6 +479,7 @@ endfunction
 
 " available at any time
 command! -bar -nargs=1 REPLConnect :call fireplace#connect(<f-args>)
+command! -bar REPLInput :call fireplace#repl_input()
 
 " buffer-local
 command! -bar FireplaceREPLConnectProject :exe fireplace#connect_local()
@@ -696,13 +786,14 @@ function! s:actually_input(...)
   return call(function('input'), a:000)
 endfunction
 
+" TODO history should optionally be either per-project or global
+if !exists('g:FIREPLACE_HISTORY') || type(g:FIREPLACE_HISTORY) != type([])
+  unlet! g:FIREPLACE_HISTORY
+  let g:FIREPLACE_HISTORY = []
+endif
+
 " TODO I don't understand why this fn is taking a default input
 function! s:input(default) abort
-  " TODO history should optionally be either per-project or global
-  if !exists('g:FIREPLACE_HISTORY') || type(g:FIREPLACE_HISTORY) != type([])
-    unlet! g:FIREPLACE_HISTORY
-    let g:FIREPLACE_HISTORY = []
-  endif
   try
     let s:input = bufnr('%')
     let s:oldhist = s:histswap(g:FIREPLACE_HISTORY)

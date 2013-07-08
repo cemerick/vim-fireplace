@@ -1,5 +1,7 @@
 # fireplace.vim
 
+# _This is a WIP hack by a noob vim user.  Most of the below docs no longer apply.  Beware for now._
+
 There's a REPL in fireplace, but you probably wouldn't have noticed if I hadn't
 told you.  Such is the way with fireplace.vim.  By the way, this plugin is for
 Clojure.

@@ -385,55 +385,8 @@ endfunction
 " augroup END
 " 
 " " }}}1
-" " REPL client {{{1
-" 
-" let s:repl = {"requires": {}}
-" 
-" if !exists('s:repls')
-"   let s:repls = []
-"   let s:repl_paths = {}
-" endif
-" 
-" function! s:repl.path() dict abort
-"   return self.connection.path()
-" endfunction
-" 
-" function! s:repl.eval(expr, options) dict abort
-"   try
-"     let result = self.connection.eval(a:expr, a:options)
-"   catch /^\w\+ Connection Error:/
-"     call filter(s:repl_paths, 'v:val isnot self')
-"     call filter(s:repls, 'v:val isnot self')
-"     throw v:exception
-"   endtry
-"   return result
-" endfunction
-" 
-" function! s:repl.require(lib) dict abort
-"   if a:lib !~# '^\%(user\)\=$' && !get(self.requires, a:lib, 0)
-"     let reload = has_key(self.requires, a:lib) ? ' :reload' : ''
-"     let self.requires[a:lib] = 0
-"     let result = self.eval('(doto '.s:qsym(a:lib).' (require'.reload.') the-ns)', {'ns': 'user', 'session': 0})
-"     let self.requires[a:lib] = !has_key(result, 'ex')
-"     if has_key(result, 'ex')
-"       return result.err
-"     endif
-"   endif
-"   return ''
-" endfunction
-" 
-" function! s:repl.includes_file(file) dict abort
-"   let file = substitute(a:file, '\C^zipfile:\(.*\)::', '\1/', '')
-"   for path in self.path()
-"     if file[0 : len(path)-1] ==? path
-"       return 1
-"     endif
-"   endfor
-" endfunction
-"
-" " }}}1
-" " :Connect {{{1
-" 
+
+" :Connect {{{1
 
 " available at any time
 command! -bar -nargs=1 REPLConnect :call fireplace#connect(<f-args>)
@@ -864,31 +817,8 @@ augroup fireplace_eval
 "   autocmd CmdWinLeave @ if exists('s:input') | call s:cmdwinleave() | endif
 augroup END
  
-" " }}}1
-" " :Require {{{1
-" 
-" function! s:Require(bang, ns)
-"   let cmd = ('(clojure.core/require '.s:qsym(a:ns ==# '' ? fireplace#ns() : a:ns).' :reload'.(a:bang ? '-all' : '').')')
-"   echo cmd
-"   try
-"     call fireplace#session_eval(cmd)
-"     return ''
-"   catch /^Clojure:.*/
-"     return ''
-"   endtry
-" endfunction
-" 
-" function! s:setup_require()
-"   command! -buffer -bar -bang -complete=customlist,fireplace#ns_complete -nargs=? Require :exe s:Require(<bang>0, <q-args>)
-"   nnoremap <silent><buffer> cpr :Require<CR>
-" endfunction
-" 
-" augroup fireplace_require
-"   autocmd!
-"   autocmd FileType clojure call s:setup_require()
-" augroup END
-" 
-" " }}}1
+" }}}1
+
 " " Go to source {{{1
 " 
 " function! s:decode_url(url) abort

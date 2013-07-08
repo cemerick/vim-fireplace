@@ -54,7 +54,7 @@ def _vim_log (*msg):
     vim.command(":echom " + _vim_log_components(msg))
 
 def _vim_error (*msg):
-    vim.command(":echoe" + _vim_log_components(msg))
+    vim.command(":echoe " + _vim_log_components(msg))
 
 ## figuring out vim/py interop
 # x ={u"の": [5, 6, 'b']} 
@@ -126,7 +126,7 @@ def connect_local_repl (rootdir):
         return connect("nrepl://localhost:" + port, rootdir=rootdir)
     else:
         _vim_error("Cannot connect to REPL local to", rootdir,
-                "— no file found @ `target/repl-port`")
+                "-- no file found @ `target/repl-port`")
         pass
 
 def start_local_repl (rootdir, cmd=["lein", "repl", ":headless"]):

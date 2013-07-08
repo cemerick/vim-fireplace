@@ -153,7 +153,8 @@ function! fireplace#session_ready (info)
   " TODO would like this to be nomodifiable, but that affects .append on the
   " python side, too (and it twiddling modifiable before and after log updates
   " looks to be too slow)
-  setlocal buftype=nofile noswapfile filetype=clojure
+  " TODO buftype=nofile is now wiping out the buffer name!?!!!1!
+  setlocal noswapfile filetype=clojure
   " TODO provide option for setting custom statusline for all log buffers
   " TODO autocmd to swap statusline when a REPL log buffer is switched to/from
   setlocal statusline=%{fireplace#current_ns()}\ @\ %f 

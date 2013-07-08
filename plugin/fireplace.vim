@@ -244,6 +244,15 @@ function! fireplace#load_file ()
   call fireplace#send_on_session(msg)
 endfunction
 
+function! fireplace#switch_ns (...)
+  if len(a:000) == 1 && a:1 != ""
+    let ns = a:1
+  else
+    let ns = fireplace#ns()
+  endif
+  call fireplace#eval("(in-ns '" . ns . ")")
+endfunction
+
 " {"uri": "uri", "rootdir": "/optional/root/dir",
 "  "msg": {"id": "", "session": "", ...}}
 function! fireplace#receive (msg)
@@ -540,11 +549,12 @@ augroup END
 " if !exists('s:history')
 "   let s:history = []
 " endif
-" 
-" if !exists('s:qffiles')
-"   let s:qffiles = {}
-" endif
-" 
+
+" TODO what _is_ this?
+if !exists('s:qffiles')
+  let s:qffiles = {}
+endif
+
 " function! s:qfentry(entry) abort
 "   if !has_key(a:entry, 'tempfile')
 "     let a:entry.tempfile = s:temp_response(a:entry.response)
@@ -813,9 +823,11 @@ nnoremap          <Plug>FireplacePrompt :exe <SID>inputeval()<CR>
 function! s:setup_eval() abort
   command! -buffer -bang -range=0 -nargs=? -complete=customlist,fireplace#eval_complete Eval :exe s:Eval(<bang>0, <line1>, <line2>, <count>, <q-args>)
   command! -buffer LoadFile :call fireplace#load_file()
+  command! -buffer -nargs=? SwitchNS :call fireplace#switch_ns('<args>')
 
   nmap <buffer> <silent> cx :Eval<cr>
   nmap <buffer> <silent> cl :LoadFile<cr>
+  nmap <buffer> <silent> cns :SwitchNS<cr>
   
   nmap <buffer> cp <Plug>FireplacePrint
   nmap <buffer> cpp <Plug>FireplacePrintab
@@ -1013,47 +1025,47 @@ augroup END
 "   autocmd FileType clojure nnoremap <silent><buffer> <C-W><C-F> :<C-U>exe <SID>GF('split', expand('<cfile>'))<CR>
 "   autocmd FileType clojure nnoremap <silent><buffer> <C-W>gf    :<C-U>exe <SID>GF('tabedit', expand('<cfile>'))<CR>
 " augroup END
-" 
-" " }}}1
-" " Documentation {{{1
-" 
-" function! s:buffer_path(...) abort
-"   let buffer = a:0 ? a:1 : exists('s:input') ? s:input : '%'
-"   if getbufvar(buffer, '&buftype') =~# '^no'
-"     return ''
-"   endif
-"   let path = substitute(fnamemodify(bufname(buffer), ':p'), '\C^zipfile:\(.*\)::', '\1/', '')
-"   if exists('*classpath#from_vim')
-"     for dir in classpath#split(classpath#from_vim(getbufvar(buffer, '&path')))
-"       if dir !=# '' && path[0 : strlen(dir)-1] ==# dir
-"         return path[strlen(dir)+1:-1]
-"       endif
-"     endfor
-"   endif
-"   return ''
-" endfunction
-" 
-" function! fireplace#ns() abort
-"   let lnum = 1
-"   while lnum < line('$') && getline(lnum) =~# '^\s*\%(;.*\)\=$'
-"     let lnum += 1
-"   endwhile
-"   let keyword_group = '[A-Za-z0-9_?*!+/=<>.-]'
-"   let lines = join(getline(lnum, lnum+50), ' ')
-"   let lines = substitute(lines, '"\%(\\.\|[^"]\)*"\|\\.', '', 'g')
-"   let lines = substitute(lines, '\^\={[^{}]*}', '', '')
-"   let lines = substitute(lines, '\^:'.keyword_group.'\+', '', 'g')
-"   let ns = matchstr(lines, '\C^(\s*\%(in-ns\s*''\|ns\s\+\)\zs'.keyword_group.'\+\ze')
-"   if ns !=# ''
-"     return ns
-"   endif
-"   if has_key(s:qffiles, expand('%:p'))
-"     return s:qffiles[expand('%:p')].ns
-"   endif
-"   let path = s:buffer_path()
-"   return s:to_ns(path ==# '' ? 'user' : path)
-" endfunction
-" 
+ 
+" }}}1
+" Documentation {{{1
+
+function! s:buffer_path(...) abort
+  let buffer = a:0 ? a:1 : exists('s:input') ? s:input : '%'
+  if getbufvar(buffer, '&buftype') =~# '^no'
+    return ''
+  endif
+  let path = substitute(fnamemodify(bufname(buffer), ':p'), '\C^zipfile:\(.*\)::', '\1/', '')
+  if exists('*classpath#from_vim')
+    for dir in classpath#split(classpath#from_vim(getbufvar(buffer, '&path')))
+      if dir !=# '' && path[0 : strlen(dir)-1] ==# dir
+        return path[strlen(dir)+1:-1]
+      endif
+    endfor
+  endif
+  return ''
+endfunction
+
+function! fireplace#ns() abort
+  let lnum = 1
+  while lnum < line('$') && getline(lnum) =~# '^\s*\%(;.*\)\=$'
+    let lnum += 1
+  endwhile
+  let keyword_group = '[A-Za-z0-9_?*!+/=<>.-]'
+  let lines = join(getline(lnum, lnum+50), ' ')
+  let lines = substitute(lines, '"\%(\\.\|[^"]\)*"\|\\.', '', 'g')
+  let lines = substitute(lines, '\^\={[^{}]*}', '', '')
+  let lines = substitute(lines, '\^:'.keyword_group.'\+', '', 'g')
+  let ns = matchstr(lines, '\C^(\s*\%(in-ns\s*''\|ns\s\+\)\zs'.keyword_group.'\+\ze')
+  if ns !=# ''
+    return ns
+  endif
+  if has_key(s:qffiles, expand('%:p'))
+    return s:qffiles[expand('%:p')].ns
+  endif
+  let path = s:buffer_path()
+  return s:to_ns(path ==# '' ? 'user' : path)
+endfunction
+
 " function! s:Lookup(ns, macro, arg) abort
 "   " doc is in clojure.core in older Clojure versions
 "   try

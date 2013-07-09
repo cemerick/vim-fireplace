@@ -137,28 +137,36 @@ if !exists('s:sessions')
   let s:session_counter = 0
 endif
 
+let s:logroot = $HOME . '/.fireplace_repl_logs'
+
+function! fireplace#session_description ()
+  let s = s:target_session
+  return 'nREPL session ' . s['sessionnr'] . ' ' . get(s, 'projectname', '<remote>') . ' ' . s['uri']
+endfunction
+
 " {'session': 'session-id', 'uri': 'uri...', 'tooling_session': 0/1,
 " 'rootdir':'/path/to/root'}
 function! fireplace#session_ready (info)
   let s:session_counter += 1
   let session = a:info['session']
-  let a:info['session_number'] = s:session_counter
-  let bufname = 'nREPL session ' . s:session_counter .
-        \ ' ' . fnamemodify(get(a:info, 'rootdir', '<remote>'), ':t') .
-        \ ' ' . a:info['uri']
-  let a:info['bufname'] = bufname
+  if has_key(a:info, 'rootdir')
+    let a:info['projectname'] = fnamemodify(a:info['rootdir'], ':t')
+  endif
+  " strftime formatting is jacked, and has platform-specific variations
+  let logpath = s:logroot . "/" . get(a:info, 'projectname', '') . '/' . strftime('%FT%T%z') . '.clj'
+  call extend(a:info, {'sessionnr': s:session_counter, 'logpath': logpath})
+  
   let s:sessions[session] = a:info
-  exec 'new ' . substitute(bufname, ' ', '\\ ', 'g')
+  exec 'new ' . substitute(logpath, ' ', '\\ ', 'g')
   " TODO figure out where REPL sessions should be logged, how to control, etc
   " TODO would like this to be nomodifiable, but that affects .append on the
   " python side, too (and it twiddling modifiable before and after log updates
-  " looks to be too slow)
-  " TODO buftype=nofile is now wiping out the buffer name!?!!!1!
   setlocal noswapfile filetype=clojure
+  " setlocal buftype=nofile noswapfile filetype=clojure
   " TODO provide option for setting custom statusline for all log buffers
   " TODO autocmd to swap statusline when a REPL log buffer is switched to/from
-  setlocal statusline=%{fireplace#current_ns()}\ @\ %f 
-  call fireplace#pycall('vim_nrepl.register_repl_log_buffer', [session, bufname])
+  setlocal statusline=%{fireplace#current_ns()}\ @\ %{fireplace#session_description()}%=%<%F\ %m 
+  call fireplace#pycall('vim_nrepl.register_repl_log_buffer', [session, logpath])
   let b:nrepl_session = a:info
   let s:target_session = a:info
   " TODO when a session buffer is closed, close the session too
@@ -180,12 +188,25 @@ function! s:update_target_session ()
   endif
 endfunction
 
+function! s:tickle_session_log ()
+  if exists('b:nrepl_session')
+    if &mod
+      let dir = fnamemodify(bufname('%'), ':h')
+      if filewritable(dir) == 0
+        call mkdir(dir, "p")
+      endif
+      silent w
+    endif
+    redraw!
+  endif
+endfunction
+
 " this keeps the cursor of unfocused REPL log buffers visible
 " TODO only touches the first window containing each buffer, so a REPL log shown
 " in multiple windows is only going to be redrawn in one of them
-function! s:redraw_windows ()
+function! s:tickle_session_logs ()
   let current_window = winnr()
-  windo redraw!
+  windo call s:tickle_session_log()
   exe 'keepjumps ' . current_window . 'wincmd w'
 endfunction
 
@@ -195,8 +216,8 @@ augroup fireplace_session_updates
   " should probably make this optional, and provide a :SwitchTargetSession
   " command
   autocmd BufEnter * call s:update_target_session()
-  autocmd CursorHold * call s:redraw_windows()
-  autocmd CursorHoldI * call s:redraw_windows()
+  autocmd CursorHold * call s:tickle_session_logs()
+  autocmd CursorHoldI * call s:tickle_session_logs()
 augroup END
 
 function! fireplace#update_ns (session, ns)
@@ -375,7 +396,7 @@ function! fireplace#repl_input ()
   endif
 
   setlocal buftype=nofile noswapfile filetype=clojure
-  setlocal statusline=%f\ =>\ %{fireplace#target_session_ns()}\ %{fireplace#target_session()['bufname']}
+  setlocal statusline=%f\ =>\ %{fireplace#target_session_ns()}\ %{fireplace#session_description()}
 
   nmap <buffer> <silent> <C-CR> :call <SID>repl_input_eval()<cr>
   imap <buffer> <silent> <C-CR> <esc>:call <SID>repl_input_eval()<cr>a

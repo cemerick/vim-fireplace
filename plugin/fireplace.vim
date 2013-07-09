@@ -230,11 +230,11 @@ function! fireplace#eval (code)
   call fireplace#send_on_session({'op': 'eval', 'code': a:code})
 endfunction
 
-function! fireplace#interactive_eval (code)
+function! fireplace#interactive (message)
   call fireplace#pycall('vim_nrepl.interactive',
         \ [s:target_session['uri'],
         \  s:target_session['session'],
-        \  {'op':'eval', 'code':a:code}])
+        \  a:message])
 endfunction
 
 function! s:buffer_contents ()
@@ -248,7 +248,9 @@ function! fireplace#load_file ()
         \ 'file-name': fnamemodify(bufname('%'), ':t'),
         \ 'file-path': expand('%:p')}
   " TODO file-path should be source-root-relative; tough to reliably determine
-  call fireplace#send_on_session(msg)
+  " just looking at files. Go get the classpath of each opened session and look
+  " for longest prefixing path?
+  call fireplace#interactive(msg)
 endfunction
 
 function! fireplace#switch_ns (...)
@@ -346,7 +348,7 @@ function! s:repl_input_eval ()
       call remove(g:FIREPLACE_HISTORY, existing_history)
     endif
     call add(g:FIREPLACE_HISTORY, code)
-    call fireplace#interactive_eval(code)
+    call fireplace#interactive({'op': 'eval', 'code': code})
     exe "normal! ggdG"
   endif
 endfunction
@@ -822,7 +824,7 @@ function! s:inputeval() abort
   let input = s:input('')
   redraw
   if input !=# ''
-    call fireplace#interactive_eval(input)
+    call fireplace#interactive({'op': 'eval', 'code': input})
   endif
   return ''
 endfunction

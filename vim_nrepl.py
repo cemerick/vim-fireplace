@@ -185,8 +185,8 @@ def interactive (uri, session, message):
     if op == 'eval':
         _log_append(buf, message, 'code', '')
     elif op == 'load-file':
-        filename = message.get('file-name', '')
-        _log_append(buf, {'x':';* loading file ' + filename}, 'x')
+        path = message.get('file-path', '')
+        _log_append(buf, {'x':';* loading ' + path}, 'x')
 
     send_on_session(uri, session, message)
 

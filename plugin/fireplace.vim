@@ -821,7 +821,7 @@ function! s:input(default) abort
   try
     let s:input = bufnr('%')
     let s:oldhist = s:histswap(g:FIREPLACE_HISTORY)
-    return s:actually_input(fireplace#current_ns().'=> ', a:default, 'customlist,fireplace#eval_complete')
+    return s:actually_input(fireplace#target_session_ns().'=> ', a:default, 'customlist,fireplace#eval_complete')
   finally
     unlet! s:input
     if exists('s:oldhist')
@@ -903,6 +903,8 @@ function! s:setup_eval() abort
 "   nmap <buffer> cq <Plug>FireplaceEdit
 "   nmap <buffer> cqq <Plug>FireplaceEditab
 " 
+  " TODO should make this available everywhere, now that *ns* is always taken
+  " from the target session, not the current buffer
   nmap <buffer> cqp <Plug>FireplacePrompt
 "   exe 'nmap <buffer> cqc <Plug>FireplacePrompt' . &cedit . 'i'
 " 

@@ -186,10 +186,12 @@ function! fireplace#session_ready (info)
   call extend(a:info, {'sessionnr': s:session_counter, 'logpath': logpath})
   
   let s:sessions[session] = a:info
+  " TODO using the log path as the buffer name *sucks* (sessions don't show up
+  " in :ls in any kind of useful way, just a bunch of REPL log filenames)
   exec 'new ' . substitute(logpath, ' ', '\\ ', 'g')
-  " TODO figure out where REPL sessions should be logged, how to control, etc
   " TODO would like this to be nomodifiable, but that affects .append on the
   " python side, too (and it twiddling modifiable before and after log updates
+  " is impractical)
   setlocal noswapfile filetype=clojure
   " setlocal buftype=nofile noswapfile filetype=clojure
   " TODO provide option for setting custom statusline for all log buffers

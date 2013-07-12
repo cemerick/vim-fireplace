@@ -6,12 +6,25 @@ import nrepl_state as state
 from functools import partial
 
 class VimConnection (nrepl.WatchableConnection):
+    _connectionnr = 0
     def __init__ (self, uri, process=None, rootdir=None):
         nrepl.WatchableConnection.__init__(self, nrepl.connect(uri))
+        self.connectionnr = VimConnection._connectionnr
+        VimConnection._connectionnr += 1
         self.uri = uri
         self.process = process
         # "/optional/root/directory, e.g. where lein was started"
         self.rootdir = rootdir
+    
+    # not a true __repr__ because of self.process, etc., so just a vim interop
+    # view
+    def vimrepr (self):
+        m = {"uri": self.uri, "connectionnr": self.connectionnr}
+        if self.rootdir:
+            m["rootdir"] = self.rootdir
+        if self.process:
+            m["pid"] = self.process.pid
+        return m
 
 ### vim interop ###
 
@@ -35,6 +48,8 @@ def _vim_encode (input):
     elif isinstance(input, dict):
         return "{" + ",".join([_vim_encode(k) + ":" + _vim_encode(v) for k, v in
             input.items()]) + "}"
+    elif not input:
+        return "0"
 
 def _vim_let (var, value):
   return vim.command('let ' + var + " = " + _vim_encode(value))

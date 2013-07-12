@@ -22,6 +22,7 @@ try:
 except ValueError:
   sys.path.extend(additions)
 import vim_nrepl
+import nrepl_state
 EOF
 
 function! fireplace#pystring (x)
@@ -150,6 +151,18 @@ function! fireplace#list_sessions ()
     echo printf("%3d %s %s %s",
           \ s["sessionnr"], get(s, "projectname", "<remote>"), s['*ns*'], s['uri'])
   endfor
+endfunction
+
+function! fireplace#list_connections (...)
+  if a:0 == 0
+    py vim_nrepl._vimcall('fireplace#list_connections',
+          \ [c.vimrepr() for c in nrepl_state.connections.values()])
+  else
+    for c in s:sort_by(a:1, "connectionnr")
+      let pid = has_key(c, "pid") ? "pid " . c["pid"] : ""
+      echo printf("%3d %s %s %s", c["connectionnr"], pid, get(c, "rootdir", "<remote>"), c["uri"])
+    endfor
+  endif
 endfunction
 
 let s:logroot = $HOME . '/.fireplace_repl_logs'
@@ -521,6 +534,7 @@ endfunction
 command! -bar -nargs=1 REPLConnect :call fireplace#connect(<f-args>)
 command! -bar REPLInput :call fireplace#repl_input()
 command! REPLSessions :call fireplace#list_sessions()
+command! REPLConnections :call fireplace#list_connections()
 
 " buffer-local
 command! -bar FireplaceREPLConnectProject :exe fireplace#connect_local()

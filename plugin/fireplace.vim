@@ -137,6 +137,21 @@ if !exists('s:sessions')
   let s:session_counter = 0
 endif
 
+function! s:sort_by (coll, key)
+  call map(a:coll, '[v:val[' . string(a:key) . '], v:val]')
+  call sort(a:coll)
+  call map(a:coll, 'get(v:val, 1)')
+  return a:coll
+endfunction
+
+function! fireplace#list_sessions ()
+  let ss = s:sort_by(deepcopy(values(s:sessions)), "sessionnr")
+  for s in ss
+    echo printf("%3d %s %s %s",
+          \ s["sessionnr"], get(s, "projectname", "<remote>"), s['*ns*'], s['uri'])
+  endfor
+endfunction
+
 let s:logroot = $HOME . '/.fireplace_repl_logs'
 
 function! fireplace#session_description ()
@@ -505,6 +520,7 @@ endfunction
 " available at any time
 command! -bar -nargs=1 REPLConnect :call fireplace#connect(<f-args>)
 command! -bar REPLInput :call fireplace#repl_input()
+command! REPLSessions :call fireplace#list_sessions()
 
 " buffer-local
 command! -bar FireplaceREPLConnectProject :exe fireplace#connect_local()

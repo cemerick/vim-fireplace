@@ -510,11 +510,19 @@ command! -bar REPLInput :call fireplace#repl_input()
 command! -bar FireplaceREPLConnectProject :exe fireplace#connect_local()
 command! -bar FireplaceREPLStartProject :exe fireplace#start_local()
 
+function! s:setup_connect ()
+  " TODO what's the point of this indirection?
+  command! -bar REPLConnectProject :FireplaceREPLConnectProject
+  command! -bar REPLStartProject :FireplaceREPLStartProject    
+
+  if exists('b:nrepl_session')
+    command! REPLSessionClone :exe fireplace#clone_this_session()
+  endif
+endfunction
+
 augroup fireplace_connect
   autocmd!
-  " TODO what's the point of the indirection here?
-  autocmd FileType clojure command! -bar REPLConnectProject :FireplaceREPLConnectProject
-  autocmd FileType clojure command! -bar REPLStartProject :FireplaceREPLStartProject
+  autocmd FileType clojure call s:setup_connect() 
 augroup END
 
 " }}}1

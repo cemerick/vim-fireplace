@@ -172,7 +172,8 @@ def _watch_register_session (uri, tooling_session, msg, wc, key):
                 # TODO separate callback for tooling session responses
                 _vim_log if tooling_session else update_log))
 
-    sessioninfo = {"session": session, "uri": uri,
+    sessioninfo = {"session": session,
+            "connection": state.connections[uri].vimrepr(),
             "tooling_session": tooling_session}
     if wc.rootdir: sessioninfo["rootdir"] = wc.rootdir
 

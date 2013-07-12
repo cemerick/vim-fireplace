@@ -169,11 +169,11 @@ let s:logroot = $HOME . '/.fireplace_repl_logs'
 
 function! fireplace#session_description ()
   let s = s:target_session
-  return 'nREPL session ' . s['sessionnr'] . ' ' . get(s, 'projectname', '<remote>') . ' ' . s['uri']
+  return 'nREPL session ' . s['sessionnr'] . ' ' . get(s, 'projectname', '<remote>') . ' ' . s['connection']['uri']
 endfunction
 
-" {'session': 'session-id', 'uri': 'uri...', 'tooling_session': 0/1,
-" 'rootdir':'/path/to/root'}
+" {'session': 'session-id', 'connection': {'uri': ..., ...},
+" 'tooling_session': 0/1, 'rootdir':'/path/to/root'}
 function! fireplace#session_ready (info)
   let s:session_counter += 1
   let session = a:info['session']
@@ -206,7 +206,7 @@ function! fireplace#session_ready (info)
   " TODO emit the Clojure version number synchronously with a special ;; comment
   " + no 'value' output
   call fireplace#pycall('vim_nrepl.send_on_session',
-        \ [a:info['uri'], session, 
+        \ [a:info['connection']['uri'], session, 
         \  {'op':'eval',
         \   'code': '(println "Clojure" (clojure-version))'}])
 endfunction
@@ -273,7 +273,7 @@ endfunction
 
 function! fireplace#send_on_session (message)
   call fireplace#pycall('vim_nrepl.send_on_session',
-        \ [s:target_session['uri'],
+        \ [s:target_session['connection']['uri'],
         \  s:target_session['session'],
         \  a:message])
 endfunction
@@ -284,7 +284,7 @@ endfunction
 
 function! fireplace#interactive (message)
   call fireplace#pycall('vim_nrepl.interactive',
-        \ [s:target_session['uri'],
+        \ [s:target_session['connection']['uri'],
         \  s:target_session['session'],
         \  a:message])
 endfunction
@@ -330,7 +330,7 @@ endfunction
 
 " TODO session cloning doesn't actually clone :-P
 function! fireplace#clone_this_session ()
-  call fireplace#clone_session(b:nrepl_session['uri'], b:nrepl_session['session'])
+  call fireplace#clone_session(b:nrepl_session['connection']['uri'], b:nrepl_session['session'])
 endfunction
 
 function! fireplace#connection_ready (uri)

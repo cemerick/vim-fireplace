@@ -147,9 +147,14 @@ endfunction
 
 function! fireplace#list_sessions ()
   let ss = s:sort_by(deepcopy(values(s:sessions)), "sessionnr")
+  if len(ss) > 0
+    " ensures that the results stay visible until dismissal (does :ls print like
+    " this too?), and separates successive session/connection listings
+    echo ":REPLSessions"
+  endif
   for s in ss
-    echo printf("%3d %s %s %s",
-          \ s["sessionnr"], get(s, "projectname", "<remote>"), s['*ns*'], s['uri'])
+    echo printf("%3d %s @ conn %d %s %s",
+          \ s["sessionnr"], s['*ns*'], s['connection']['connectionnr'], get(s, "projectname", "<remote>"), s['connection']['uri'])
   endfor
 endfunction
 
@@ -158,6 +163,9 @@ function! fireplace#list_connections (...)
     py vim_nrepl._vimcall('fireplace#list_connections',
           \ [c.vimrepr() for c in nrepl_state.connections.values()])
   else
+    if len(a:1) > 0
+      echo ":REPLConnections"
+    endif
     for c in s:sort_by(a:1, "connectionnr")
       let pid = has_key(c, "pid") ? "pid " . c["pid"] : ""
       echo printf("%3d %s %s %s", c["connectionnr"], pid, get(c, "rootdir", "<remote>"), c["uri"])

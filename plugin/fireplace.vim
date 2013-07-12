@@ -153,7 +153,8 @@ function! fireplace#session_ready (info)
     let a:info['projectname'] = fnamemodify(a:info['rootdir'], ':t')
   endif
   " strftime formatting is jacked, and has platform-specific variations
-  let logpath = s:logroot . "/" . get(a:info, 'projectname', '') . '/' . strftime('%FT%T%z') . '.clj'
+  let logpath = simplify(s:logroot . "/" . get(a:info, 'projectname', '') .
+        \ '/' . strftime('%FT%T%z') . '.clj')
   call extend(a:info, {'sessionnr': s:session_counter, 'logpath': logpath})
   
   let s:sessions[session] = a:info

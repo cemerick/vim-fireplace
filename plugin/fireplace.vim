@@ -107,6 +107,8 @@ function! s:leiningen_root () abort
     return 0
 endfunction
 
+" TODO would be nice if this ran on any file, so you can start a REPL anywhere
+" in your project, not just on .clj* files
 function! s:leiningen_init() abort
   if !exists('b:leiningen_root')
     let root = s:leiningen_root()
@@ -286,6 +288,8 @@ function! fireplace#send_on_session (message)
         \  a:message])
 endfunction
 
+" TODO all in-place usages of this (e.g. cx, cpp, etc) should switch to the file
+" ns temporarily for the scope of the eval
 function! fireplace#eval (code)
   call fireplace#send_on_session({'op': 'eval', 'code': a:code})
 endfunction

@@ -175,6 +175,29 @@ function! fireplace#list_connections (...)
   endif
 endfunction
 
+" TODO these should take ranges, too
+function! fireplace#close_session (...)
+  if a:0 == 0
+    if exists('b:nrepl_session')
+      let session = b:nrepl_session
+    endif
+  else
+    for s in values(s:sessions)
+      if s["sessionnr"] == a:1
+        let session = s
+      endif
+    endfor
+  endif
+
+  if exists('session')
+    call fireplace#pycall('vim_nrepl.close_session',
+          \ [session['connection']['uri'], session["session"]])
+    call remove(s:sessions, session["session"])
+  else
+    call s:beep()
+    echohl ErrorMsg | echo "No sessions were closed" | echohl None
+  endif
+endfunction
 let s:logroot = $HOME . '/.fireplace_repl_logs'
 
 function! fireplace#session_description ()
@@ -199,6 +222,9 @@ function! fireplace#session_ready (info)
   " TODO using the log path as the buffer name *sucks* (sessions don't show up
   " in :ls in any kind of useful way, just a bunch of REPL log filenames)
   exec 'new ' . substitute(logpath, ' ', '\\ ', 'g')
+  let b:nrepl_session = a:info
+  let s:target_session = a:info
+  call fireplace#pycall('vim_nrepl.register_repl_log_buffer', [session, logpath])
   " TODO would like this to be nomodifiable, but that affects .append on the
   " python side, too (and it twiddling modifiable before and after log updates
   " is impractical)
@@ -207,9 +233,6 @@ function! fireplace#session_ready (info)
   " TODO provide option for setting custom statusline for all log buffers
   " TODO autocmd to swap statusline when a REPL log buffer is switched to/from
   setlocal statusline=%{fireplace#current_ns()}\ @\ %{fireplace#session_description()}%=%<%F\ %m 
-  call fireplace#pycall('vim_nrepl.register_repl_log_buffer', [session, logpath])
-  let b:nrepl_session = a:info
-  let s:target_session = a:info
   " TODO when a session buffer is closed, close the session too
   " TODO add some koans? :-)
   " TODO Cloning an active ClojureScript session won't work (yet)

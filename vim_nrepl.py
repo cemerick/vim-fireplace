@@ -89,7 +89,7 @@ def _vim_buffer (bufname):
 def _vim_session_buffer (session):
     # TODO handle missing REPL log buffer, shut down session
     for b in vim.buffers:
-        if b.name == state.session_buffers[session]:
+        if b.name == state.session_buffers.get(session):
             return b
 
 def _log_append (buf, msg, slot, prefix=""):
@@ -107,6 +107,7 @@ def update_log (resp):
     msg = resp['msg']
     session = msg['session']
     buf = _vim_session_buffer(session)
+    if not buf: return
     # .cursor is always one line behind, but only while we're updating?! Maybe
     # some kind of threading problem
     windows = filter(lambda w: w.buffer.name == buf.name and w.cursor[0] >=
@@ -196,14 +197,27 @@ def send_on_session (uri, session, message):
 
 def interactive (uri, session, message):
     buf = _vim_session_buffer(session)
-    op = message['op']
-    if op == 'eval':
-        _log_append(buf, message, 'code', '')
-    elif op == 'load-file':
-        path = message.get('file-path', '')
-        _log_append(buf, {'x':';* loading ' + path}, 'x')
+    if not buf:
+        _vim_error("Session closed")
+    else:
+        op = message['op']
+        if op == 'eval':
+            _log_append(buf, message, 'code', '')
+        elif op == 'load-file':
+            path = message.get('file-path', '')
+            _log_append(buf, {'x':';* loading ' + path}, 'x')
 
-    send_on_session(uri, session, message)
+        send_on_session(uri, session, message)
+
+def close_session (uri, session):
+    buf = _vim_session_buffer(session)
+    if not buf:
+        _vim_error("Session already closed")
+    else:
+        # TODO can't echo this for tooling sessions
+        _log_append(buf, {'x':';* closing session'}, 'x')
+        send_on_session(uri, session, {"op": "close"})
+        del state.session_buffers[session]
 
 # def close (session=None, uri=None, rootdir=None):
 #    if session:

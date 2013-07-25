@@ -3,6 +3,42 @@
 
 ## Notes applying to my (cemerick's) async-python branch
 
+### MacVim / gvim not recommended
+
+While regular vim tolerates the multithreaded python/vim interop that I'm
+applying to make asynchronous REPLs possible, MacVim/gvim does not.  The
+problems can range from [irritating-but-not-fatal rendering errors spewing across
+your screen](http://code.google.com/p/macvim/issues/detail?id=464), to [full-on
+segfaults](https://groups.google.com/forum/#!topic/vim_mac/AZWAnxFaIkY).  I hope
+to provide as much help as I can to the maintainers (as I do prefer the comforts
+of gvim), but for now, I'm using a terminal vim.
+
+In some places, the standard vim will not be sufficient (you need `+python`);
+in particular, OS X's default vim is particularly stripped down.  Building your
+own vim is quite easy, FWIW:
+
+1. download the [sources](http://www.vim.org/download.php) somehow
+2. presuming you don't care how "big" your vim is, just configure the build with
+   the [same options as e.g.
+   MacVim](https://github.com/b4winckler/macvim/wiki/Building):
+
+   ```
+   ./configure --with-features=huge \
+               --enable-rubyinterp \
+               --enable-pythoninterp \
+               --enable-perlinterp \
+               --enable-cscope
+   ```
+3. `make`, `make install`, and you're done
+
+If you _do_ use MacVim/gvim, note that asynchronous updates to REPL buffers do
+seem to lag a bit; i.e. if output proceeds below the limit of the window's
+current scroll region, it will take a couple seconds for that region to update
+to bring the cursor back on-screen (which vim-fireplace always pushes to the
+last line on each update iff it started there when the update began).  Note that
+terminal vim does not exhibit this behaviour; I assume it's caused by some
+synchronization delay between the vim "backend" and whatever blits a rendering
+of it to X / Quartz.
 
 ### Sending expressions to the REPL from `:REPLInput` while running vim from the
 terminal

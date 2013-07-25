@@ -238,14 +238,14 @@ function! s:tickle_session_log ()
       endif
       silent w
     endif
-    redraw!
+    redraw
   endif
 endfunction
 
 " this keeps the cursor of unfocused REPL log buffers visible
 " TODO only touches the first window containing each buffer, so a REPL log shown
 " in multiple windows is only going to be redrawn in one of them
-function! s:tickle_session_logs ()
+function! fireplace#tickle_session_logs ()
   let current_window = winnr()
   windo call s:tickle_session_log()
   exe 'keepjumps ' . current_window . 'wincmd w'
@@ -257,8 +257,8 @@ augroup fireplace_session_updates
   " should probably make this optional, and provide a :SwitchTargetSession
   " command
   autocmd BufEnter * call s:update_target_session()
-  autocmd CursorHold * call s:tickle_session_logs()
-  autocmd CursorHoldI * call s:tickle_session_logs()
+  autocmd CursorHold * call fireplace#tickle_session_logs()
+  autocmd CursorHoldI * call fireplace#tickle_session_logs()
 augroup END
 
 function! fireplace#update_ns (session, ns)

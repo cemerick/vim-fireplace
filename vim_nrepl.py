@@ -101,6 +101,7 @@ def _log_append (buf, msg, slot, prefix=""):
             buf[:] = lines
         else:
             buf.append(lines)
+        return True
 
 def update_log (resp):
     msg = resp['msg']
@@ -112,18 +113,16 @@ def update_log (resp):
             len(buf) - 1, vim.windows)
     if 'ns' in msg:
         _vimcall('fireplace#update_ns', session, msg['ns'])
-    _log_append(buf, msg, "out", "; ")
-    _log_append(buf, msg, "err", ";! ")
-    _log_append(buf, msg, "value", ";= ")
+    tickle = _log_append(buf, msg, "out", "; ")
+    tickle = _log_append(buf, msg, "err", ";! ") or tickle
+    tickle = _log_append(buf, msg, "value", ";= ") or tickle
     
-    for w in windows:
-        w.cursor = (len(buf), 0)
-    if len(windows):
-        # need explicit redraw to reveal newly-moved cursor, though this
-        # only helps if the window in question is current/focused
-        # TODO may be extraneous if s:cycle_session_buffers is doing its job
-        vim.command(":redraw!")
-
+    if tickle:
+        for w in windows:
+            w.cursor = (len(buf), 0)
+        if len(windows):
+            _vimcall("fireplace#tickle_session_logs")
+        
 ### public API ###
 
 def connect (uri, **kwargs):

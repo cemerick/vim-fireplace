@@ -466,6 +466,11 @@ function! fireplace#repl_input ()
 
   nmap <buffer> <silent> <C-CR> :call <SID>repl_input_eval()<cr>
   imap <buffer> <silent> <C-CR> <esc>:call <SID>repl_input_eval()<cr>a
+  " <C-CR> doesn't work in terminals in general https://github.com/cemerick/vim-fireplace/issues/3
+  " fallback for terminal vim use, map whatever keys you want in your terminal
+  " send-for-eval to <S-F12>, and you'll be good
+  nmap <buffer> <silent> <S-F12> :call <SID>repl_input_eval()<cr>
+  imap <buffer> <silent> <S-F12> <esc>:call <SID>repl_input_eval()<cr>a
   " too many <CR>'s running around for this to work, too clever
   " imap <buffer> <silent> <CR> <esc>:call <SID>maybe_repl_input_eval()<cr>a
 

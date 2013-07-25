@@ -1,6 +1,21 @@
-# fireplace.vim
 
 # _This is a WIP hack by a noob vim user.  Most of the below docs no longer apply.  Beware for now._
+
+## Notes applying to my (cemerick's) async-python branch
+
+
+### Sending expressions to the REPL from `:REPLInput` while running vim from the
+terminal
+
+[Most terminals don't recognize `<C-CR>`
+usefully](https://github.com/cemerick/vim-fireplace/issues/3), so `:REPLInput` is mostly
+useless if you're using vim in a terminal.  However, `<S-F12>` is provided as an
+alternative mapping; configure your terminal to send the corresponding escape
+sequence when you hit `<C-CR>` (`ESC+[24;2~` worked for me in iTerm2), and what
+you've entered into the `:REPLInput` buffer will be sent to the current REPL
+session.
+
+# fireplace.vim
 
 There's a REPL in fireplace, but you probably wouldn't have noticed if I hadn't
 told you.  Such is the way with fireplace.vim.  By the way, this plugin is for

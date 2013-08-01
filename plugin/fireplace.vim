@@ -280,6 +280,14 @@ augroup fireplace_session_updates
   " should probably make this optional, and provide a :SwitchTargetSession
   " command
   autocmd BufEnter * call s:update_target_session()
+
+  autocmd CursorMoved * call fireplace#pycall("vim_nrepl.drain_queue", [])
+  autocmd CursorMovedI * call fireplace#pycall("vim_nrepl.drain_queue", [])
+  autocmd CursorHold * call fireplace#pycall("vim_nrepl.drain_queue", [])
+  autocmd CursorHoldI * call fireplace#pycall("vim_nrepl.drain_queue", [])
+  " TODO could use WinEnter as well, just need to make sure we don't start an
+  " infinite loop
+
   autocmd CursorHold * call fireplace#tickle_session_logs()
   autocmd CursorHoldI * call fireplace#tickle_session_logs()
 augroup END

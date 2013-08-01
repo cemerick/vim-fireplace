@@ -1,6 +1,6 @@
 # vim: set fileencoding=utf-8 :
 
-import nrepl, subprocess, re, os.path, vim
+import nrepl, subprocess, re, os.path, vim, threading
 from uuid import uuid4
 import nrepl_state as state
 from functools import partial
@@ -158,26 +158,37 @@ def start_local_repl (rootdir, cmd=["lein", "repl", ":headless"]):
 
 ### automatic session tracking ###
 
+# event queue; avoiding multithreaded input into vim at the moment because of
+# https://groups.google.com/forum/#!topic/vim_mac/AZWAnxFaIkY
+_queue = []
+
+def queue (fn):
+    _queue.append(fn)
+
+def drain_queue ():
+    while len(_queue) > 0:
+        _queue.pop(0)()
+
 def _watch_session_responses (uri, update_fn, msg, wc, key):
     response = {"uri": uri, "msg": msg}
     if wc.rootdir: response["rootdir"] = wc.rootdir
-    update_fn(response)
+    queue(lambda: update_fn(response))
 
 def _watch_register_session (uri, tooling_session, msg, wc, key):
     wc.unwatch(key)
 
     session = msg.get("new-session")
-    wc.watch("session-" + session, {"session": session},
-            partial(_watch_session_responses, uri,
-                # TODO separate callback for tooling session responses
-                _vim_log if tooling_session else update_log))
-
     sessioninfo = {"session": session,
             "connection": state.connections[uri].vimrepr(),
             "tooling_session": tooling_session}
     if wc.rootdir: sessioninfo["rootdir"] = wc.rootdir
 
-    _vimcall("fireplace#session_ready", sessioninfo)
+    queue(lambda: _vimcall("fireplace#session_ready", sessioninfo))
+
+    wc.watch("session-" + session, {"session": session},
+            partial(_watch_session_responses, uri,
+                # TODO separate callback for tooling session responses
+                _vim_log if tooling_session else update_log))
 
 def uuid (): return str(uuid4())
 
